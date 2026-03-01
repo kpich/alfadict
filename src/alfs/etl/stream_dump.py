@@ -43,6 +43,10 @@ def main() -> None:
                 elem.clear()
                 continue
 
+            if elem.find(f"{{{NS}}}redirect") is not None:
+                elem.clear()
+                continue
+
             title_elem = elem.find(f"{{{NS}}}title")
             title = title_elem.text if title_elem is not None else ""
             if not title or "/" in title:
