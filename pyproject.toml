@@ -33,6 +33,9 @@ dev = [
     "types-pyyaml",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["src"]
+
 [tool.uv]
 package = true
 
