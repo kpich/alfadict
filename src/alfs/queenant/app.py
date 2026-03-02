@@ -23,7 +23,7 @@ _docs: pl.DataFrame | None = None
 def apply_change(
     change: Change, sense_store: SenseStore, occ_store: OccurrenceStore | None = None
 ) -> None:
-    if change.type in (ChangeType.rewrite, ChangeType.pos_tag, ChangeType.prune):
+    if change.type in (ChangeType.rewrite, ChangeType.pos_tag):
         after = [Sense.model_validate(s) for s in change.data["after"]]
         sense_store.update(
             change.form,
@@ -31,6 +31,17 @@ def apply_change(
                 update={"senses": after}
             ),
         )
+    elif change.type == ChangeType.prune:
+        after = [Sense.model_validate(s) for s in change.data["after"]]
+        sense_store.update(
+            change.form,
+            lambda existing: existing.model_copy(  # type: ignore[union-attr]
+                update={"senses": after}
+            ),
+        )
+        if occ_store is not None:
+            removed_indices = [r["index"] for r in change.data.get("removed", [])]
+            occ_store.delete_and_reindex_senses(change.form, removed_indices)
     elif change.type == ChangeType.morph_redirect:
         idx = change.data["derived_sense_idx"]
         after_sense = Sense.model_validate(change.data["after"])
@@ -52,7 +63,7 @@ def apply_change(
             ),
         )
         if occ_store is not None:
-            occ_store.delete_and_reindex_sense(change.form, deleted_idx)
+            occ_store.delete_and_reindex_senses(change.form, [deleted_idx])
 
 
 def _examples_for_change(change: Change) -> list[list[str]]:

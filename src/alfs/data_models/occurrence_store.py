@@ -111,6 +111,11 @@ class OccurrenceStore:
                     )
             con.commit()
 
+    def delete_and_reindex_senses(self, form: str, indices: list[int]) -> None:
+        """Delete occurrences for multiple sense indices and reindex remainder."""
+        for idx in sorted(indices, reverse=True):
+            self.delete_and_reindex_sense(form, idx)
+
     def count_by_form(self) -> pl.DataFrame:
         with self._connect() as con:
             rows = con.execute(

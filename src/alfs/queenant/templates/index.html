@@ -125,10 +125,32 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
+function renderTrimSenseBody(c) {
+  const before = c.data.before || [];
+  const deletedIdx = c.data.deleted_idx;
+  const reason = c.data.reason || '';
+  const rows = before.map((s, i) => {
+    if (i === deletedIdx) {
+      return `<tr class="prune-removed">
+        <td>${i+1}.</td><td><s>${esc(s.definition)}</s></td>
+        <td class="prune-stat">redundant</td></tr>`;
+    }
+    return `<tr class="prune-kept">
+      <td>${i+1}.</td><td>${esc(s.definition)}</td><td></td></tr>`;
+  }).join('');
+  const reasonRow = reason
+    ? `<tr><td colspan="3" style="color:#888;font-size:0.8rem;padding:8px 14px">${esc(reason)}</td></tr>`
+    : '';
+  return `<table class="pos-table">
+    <thead><tr><th>#</th><th>Definition</th><th></th></tr></thead>
+    <tbody>${rows}${reasonRow}</tbody></table>`;
+}
+
 function renderCard(c) {
   if (c.type === 'pos_tag')        return renderPosTagBody(c);
   if (c.type === 'prune')          return renderPruneBody(c);
   if (c.type === 'morph_redirect') return renderMorphRedirectBody(c);
+  if (c.type === 'trim_sense')     return renderTrimSenseBody(c);
   return renderRewriteBody(c);
 }
 

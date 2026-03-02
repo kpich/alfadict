@@ -84,3 +84,51 @@ def test_count_by_form(store: OccurrenceStore) -> None:
 def test_count_by_form_empty(store: OccurrenceStore) -> None:
     df = store.count_by_form()
     assert len(df) == 0
+
+
+def test_delete_and_reindex_senses_single(store: OccurrenceStore) -> None:
+    """Delete index 1 (sense 2), verify it's gone and sense 3 becomes sense 2."""
+    store.upsert_many(
+        [
+            ("run", "doc1", 0, "1", 3),
+            ("run", "doc1", 10, "2", 2),
+            ("run", "doc1", 20, "3", 2),
+        ]
+    )
+    store.delete_and_reindex_senses("run", [1])
+    df = store.query_form("run").sort("byte_offset")
+    assert len(df) == 2
+    assert df["sense_key"].to_list() == ["1", "2"]
+
+
+def test_delete_and_reindex_senses_multiple(store: OccurrenceStore) -> None:
+    """Delete indices [0, 2] from 4 senses, verify senses 2 and 4 survive renumbered 1
+    and 2."""
+    store.upsert_many(
+        [
+            ("run", "doc1", 0, "1", 3),
+            ("run", "doc1", 10, "2", 2),
+            ("run", "doc1", 20, "3", 2),
+            ("run", "doc1", 30, "4", 3),
+        ]
+    )
+    store.delete_and_reindex_senses("run", [0, 2])
+    df = store.query_form("run").sort("byte_offset")
+    assert len(df) == 2
+    assert df["sense_key"].to_list() == ["1", "2"]
+    assert df["byte_offset"].to_list() == [10, 30]
+
+
+def test_delete_and_reindex_senses_with_subsense(store: OccurrenceStore) -> None:
+    """Verify subsense keys like '2a' shift correctly when a lower index is deleted."""
+    store.upsert_many(
+        [
+            ("run", "doc1", 0, "1", 3),
+            ("run", "doc1", 10, "2a", 2),
+            ("run", "doc1", 20, "3", 2),
+        ]
+    )
+    store.delete_and_reindex_senses("run", [0])
+    df = store.query_form("run").sort("byte_offset")
+    assert len(df) == 2
+    assert df["sense_key"].to_list() == ["1a", "2"]
