@@ -57,7 +57,7 @@ def test_redirect_forms_excluded():
     labeled = _labeled([])
     docs = _docs([("doc1", 2020, "")])
 
-    result = compile_entries(alfs, labeled, docs)
+    result = compile_entries(alfs, labeled, docs, {})
 
     assert "the" in result
     assert "The" not in result
@@ -71,7 +71,7 @@ def test_non_redirect_forms_included():
     labeled = _labeled([("run", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "run fast")])
 
-    result = compile_entries(alfs, labeled, docs)
+    result = compile_entries(alfs, labeled, docs, {})
 
     assert "run" in result
     assert result["run"]["senses"][0]["definition"] == "to move quickly"
@@ -96,7 +96,7 @@ def test_percentile_ordering():
         [("doc1", 2020, ""), ("doc2", 2020, ""), ("doc3", 2020, ""), ("doc4", 2020, "")]
     )
 
-    result = compile_entries(alfs, labeled, docs)
+    result = compile_entries(alfs, labeled, docs, {"common": 3, "rare": 1})
 
     assert result["common"]["percentile"] < result["rare"]["percentile"]
 
@@ -108,7 +108,7 @@ def test_instances_included_per_sense():
     labeled = _labeled([("run", "doc1", 0, "1", 3)])
     docs = _docs([("doc1", 2020, "run fast through the park")])
 
-    result = compile_entries(alfs, labeled, docs)
+    result = compile_entries(alfs, labeled, docs, {})
 
     instances = result["run"]["senses"][0]["instances"]
     assert len(instances) == 1
@@ -122,6 +122,6 @@ def test_instances_empty_when_no_rating3():
     labeled = _labeled([("walk", "doc1", 0, "1", 2)])
     docs = _docs([("doc1", 2020, "walk slowly")])
 
-    result = compile_entries(alfs, labeled, docs)
+    result = compile_entries(alfs, labeled, docs, {})
 
     assert result["walk"]["senses"][0]["instances"] == []
