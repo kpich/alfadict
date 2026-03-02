@@ -5,9 +5,10 @@ params.text_data_dir = "${launchDir}/../text_data"
 params.docs          = "${params.text_data_dir}/latest/docs.parquet"
 params.out_date      = new Date().format('yyyy-MM-dd')
 params.out_dir       = "${params.seg_data_dir}/${params.out_date}"
-params.num_shards    = 6
+params.num_shards    = 100
 
 process SEGMENT_DOCS_SHARD {
+    maxForks 8
     input:  tuple path("docs.parquet"), val(shard_idx)
     output: path "occurrences_${shard_idx}.parquet"
     script:
