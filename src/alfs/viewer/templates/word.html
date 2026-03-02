@@ -24,6 +24,9 @@
       {% endfor %}
     </ul>
     {% endif %}
+    {% if sense.morph_base %}
+    <div class="text-muted small mt-1">→ <a href="/word/{{ sense.morph_base }}">{{ sense.morph_base }}</a>{% if sense.morph_relation %} <span class="fst-italic">({{ sense.morph_relation }})</span>{% endif %}</div>
+    {% endif %}
   </li>
 {% endfor %}
 </ol>

@@ -24,6 +24,7 @@ def compile_entries(
     alfs: Alfs,
     labeled: pl.DataFrame,
     docs: pl.DataFrame,
+    corpus_counts: dict[str, int],
 ) -> dict:
     """Build the viewer entries dict, skipping redirect forms."""
     joined = labeled.filter(pl.col("rating") >= 1).join(
@@ -74,6 +75,10 @@ def compile_entries(
                     {"key": sense_key(top_idx, sub_idx), "definition": defn}
                     for sub_idx, defn in enumerate(sense.subsenses)
                 ]
+            if sense.morph_base is not None:
+                sense_entry["morph_base"] = sense.morph_base
+            if sense.morph_relation is not None:
+                sense_entry["morph_relation"] = sense.morph_relation
             sense_entry["instances"] = fetch_instances(
                 form,
                 sense_key(top_idx),
@@ -91,13 +96,7 @@ def compile_entries(
             "by_year": dict(by_year_per_form.get(form, {})),
         }
 
-    total_counts = {
-        form: sum(
-            count for yr_data in entry["by_year"].values() for count in yr_data.values()
-        )
-        for form, entry in entries.items()
-    }
-    sorted_forms = sorted(entries, key=lambda f: total_counts[f], reverse=True)
+    sorted_forms = sorted(entries, key=lambda f: corpus_counts.get(f, 0), reverse=True)
     n = len(sorted_forms)
     for rank, form in enumerate(sorted_forms, start=1):
         entries[form]["percentile"] = math.ceil(rank / n * 100) if n else 100
@@ -110,6 +109,7 @@ def main() -> None:
     parser.add_argument("--senses-db", required=True, help="Path to senses.db")
     parser.add_argument("--labeled-db", required=True, help="Path to labeled.db")
     parser.add_argument("--docs", required=True, help="Path to docs.parquet")
+    parser.add_argument("--by-prefix-dir", required=True, help="Path to by_prefix/ dir")
     parser.add_argument("--output", required=True, help="Path to output data.json")
     args = parser.parse_args()
 
@@ -121,7 +121,19 @@ def main() -> None:
     labeled = occ_store.to_polars()
     docs = pl.read_parquet(args.docs)
 
-    entries = compile_entries(alfs, labeled, docs)
+    alfs_forms = list(alfs.entries.keys())
+    corpus_df = (
+        pl.scan_parquet(str(Path(args.by_prefix_dir) / "**" / "*.parquet"))
+        .filter(pl.col("form").is_in(alfs_forms))
+        .group_by("form")
+        .agg(pl.len().alias("count"))
+        .collect()
+    )
+    corpus_counts = dict(
+        zip(corpus_df["form"].to_list(), corpus_df["count"].to_list(), strict=False)
+    )
+
+    entries = compile_entries(alfs, labeled, docs, corpus_counts)
 
     output = {"entries": entries}
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
