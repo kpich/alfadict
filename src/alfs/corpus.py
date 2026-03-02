@@ -42,7 +42,15 @@ def fetch_instances(
         .filter(pl.col("rating") >= min_rating)
         .head(max_instances)
     )
-    docs_map = dict(zip(docs["doc_id"].to_list(), docs["text"].to_list(), strict=False))
+    if filtered.is_empty():
+        return []
+    needed_ids = filtered["doc_id"].unique().to_list()
+    docs_subset = docs.filter(pl.col("doc_id").is_in(needed_ids))
+    docs_map = dict(
+        zip(
+            docs_subset["doc_id"].to_list(), docs_subset["text"].to_list(), strict=False
+        )
+    )
     results = []
     for row in filtered.iter_rows(named=True):
         text = docs_map.get(row["doc_id"], "")

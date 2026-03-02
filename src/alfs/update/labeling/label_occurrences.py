@@ -85,14 +85,19 @@ def main() -> None:
 
     sense_menu = build_sense_menu(sense_store, form)
 
-    docs_df = pl.read_parquet(args.docs)
-    docs = dict(
-        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
-    )
-
     prefix = form[0].lower() if form and form[0].lower().isalpha() else "other"
     occ_path = Path(args.seg_data_dir) / prefix / "occurrences.parquet"
     df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form)
+
+    needed_doc_ids = df["doc_id"].unique().to_list()
+    docs_df = (
+        pl.scan_parquet(args.docs)
+        .filter(pl.col("doc_id").is_in(needed_doc_ids))
+        .collect()
+    )
+    docs = dict(
+        zip(docs_df["doc_id"].to_list(), docs_df["text"].to_list(), strict=False)
+    )
 
     labeled_pairs: set[tuple[str, int]] = set()
     existing = occ_store.query_form(form).filter(pl.col("rating").is_in([2, 3]))
