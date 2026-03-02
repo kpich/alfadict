@@ -43,10 +43,19 @@
   .log-empty { color: #555; font-style: italic; }
 
   .expand-hint { color: #555; font-size: 0.75rem; margin-left: 4px; }
+
+  .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .top-bar h1 { margin-bottom: 0; }
+  button.yolo { border-color: #555; color: #888; }
+  button.yolo.active { border-color: #fa0; color: #fa0; background: #2a2000; }
+  button.yolo.active:hover { background: #3a2f00; }
 </style>
 </head>
 <body>
-<h1>Anthill Conductor</h1>
+<div class="top-bar">
+  <h1>Anthill Conductor</h1>
+  <button class="yolo" id="yolo-btn" onclick="toggleYolo()" title="When idle, auto-queue a random action">YOLO</button>
+</div>
 
 <div class="actions" id="action-buttons"></div>
 
@@ -69,6 +78,15 @@
 const expandedIds = new Set();
 const logOffsets = {};
 const logPollers = {};
+
+let yoloMode = false;
+let loadedActions = [];
+
+function toggleYolo() {
+  yoloMode = !yoloMode;
+  const btn = document.getElementById('yolo-btn');
+  btn.classList.toggle('active', yoloMode);
+}
 
 function fmtTime(iso) {
   if (!iso) return '—';
@@ -150,9 +168,20 @@ async function refreshTasks() {
     const tasks = await r.json();
     lastTasks = tasks;
     renderTasks(tasks);
+    if (yoloMode) maybeYolo(tasks);
   } catch (e) {
     // network hiccup — ignore
   }
+}
+
+function maybeYolo(tasks) {
+  const busy = tasks.some(t => t.status === 'pending' || t.status === 'running');
+  if (busy) return;
+  const candidates = loadedActions.filter(a => !a.human_review);
+  if (candidates.length === 0) return;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  console.log('[YOLO] queue idle — auto-queuing', pick.name);
+  queueTask(pick.name);
 }
 
 function toggleExpand(id) {
@@ -225,6 +254,7 @@ async function loadActions() {
   try {
     const r = await fetch('/api/actions');
     const actions = await r.json();
+    loadedActions = actions;
     const container = document.getElementById('action-buttons');
     for (const a of actions) {
       const btn = document.createElement('button');
