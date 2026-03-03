@@ -70,7 +70,8 @@ def induction_prompt(
         f'You are a lexicographer. Below are {n} sentences containing "{form}".\n'
         f"{existing_block}"
         f"{opt_out_clause}"
-        f"Only include a sense if it has substantial evidence (multiple examples).\n"
+        f"Only include a sense if the sentences clearly attest that meaning —"
+        f" not if it is merely plausible.\n"
         f"Each sense must be meaningfully distinct — not paraphrasable as another.\n"
         f"For each sense, group the sentence numbers that illustrate it"
         f" and write a concise one-sentence definition.\n"
