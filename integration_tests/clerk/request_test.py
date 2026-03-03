@@ -1,6 +1,6 @@
 """Integration tests for clerk request apply() methods."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from alfs.clerk.request import PruneRequest, RewriteRequest, TrimSenseRequest
@@ -32,7 +32,7 @@ def test_trim_sense_removes_sense_from_senses_db(tmp_path: Path) -> None:
 
     request = TrimSenseRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b],
         after=[sense_b],
@@ -63,7 +63,7 @@ def test_trim_sense_deletes_labeled_rows_for_removed_sense(tmp_path: Path) -> No
 
     request = TrimSenseRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b],
         after=[sense_b],
@@ -86,7 +86,7 @@ def test_trim_sense_preserves_other_sense_ids(tmp_path: Path) -> None:
 
     request = TrimSenseRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b, sense_c],
         after=[sense_a, sense_c],
@@ -113,7 +113,7 @@ def test_prune_removes_multiple_senses_from_senses_db(tmp_path: Path) -> None:
 
     request = PruneRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b, sense_c],
         after=[sense_a],
@@ -145,7 +145,7 @@ def test_prune_deletes_labeled_rows_for_removed_senses(tmp_path: Path) -> None:
 
     request = PruneRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b, sense_c],
         after=[sense_a],
@@ -166,7 +166,7 @@ def test_prune_surviving_senses_keep_original_ids(tmp_path: Path) -> None:
 
     request = PruneRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b],
         after=[sense_a],
@@ -193,7 +193,7 @@ def test_rewrite_updates_sense_definitions(tmp_path: Path) -> None:
 
     request = RewriteRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b],
         after=[new_a, new_b],
@@ -217,7 +217,7 @@ def test_rewrite_preserves_sense_ids(tmp_path: Path) -> None:
 
     request = RewriteRequest(
         id=_make_request_id(),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         form="word",
         before=[sense_a, sense_b],
         after=[new_a, new_b],
