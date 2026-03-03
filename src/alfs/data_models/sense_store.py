@@ -52,7 +52,8 @@ class SenseStore:
             return None
         rows = con.execute(
             "SELECT id, definition, pos, morph_base, morph_relation, subsenses,"
-            " updated_by_model FROM senses WHERE form = ? ORDER BY position",
+            " updated_by_model, updated_at"
+            " FROM senses WHERE form = ? ORDER BY position",
             (form,),
         ).fetchall()
         senses = [
@@ -64,6 +65,7 @@ class SenseStore:
                 morph_relation=r[4],
                 subsenses=json.loads(r[5]) if r[5] else None,
                 updated_by_model=r[6],
+                updated_at=r[7],
             )
             for r in rows
         ]
@@ -177,7 +179,7 @@ class SenseStore:
             wf_rows = con.execute("SELECT form, redirect FROM wordforms").fetchall()
             sense_rows = con.execute(
                 "SELECT form, id, definition, pos, morph_base,"
-                " morph_relation, subsenses, updated_by_model"
+                " morph_relation, subsenses, updated_by_model, updated_at"
                 " FROM senses ORDER BY form, position"
             ).fetchall()
         senses_by_form: dict[str, list[Sense]] = defaultdict(list)
@@ -191,6 +193,7 @@ class SenseStore:
                 morph_relation,
                 subsenses,
                 updated_by_model,
+                updated_at,
             ) = row
             senses_by_form[form].append(
                 Sense(
@@ -201,6 +204,7 @@ class SenseStore:
                     morph_relation=morph_relation,
                     subsenses=json.loads(subsenses) if subsenses else None,
                     updated_by_model=updated_by_model,
+                    updated_at=updated_at,
                 )
             )
         return {
