@@ -18,4 +18,5 @@ def _open_browser() -> None:
 t = threading.Thread(target=_open_browser, daemon=True)
 t.start()
 
-main(project_root, port=PORT)
+log_dir = project_root.parent / "conductor_logs"
+main(project_root, port=PORT, log_dir=log_dir)

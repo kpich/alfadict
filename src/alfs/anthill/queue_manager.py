@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -31,15 +32,19 @@ class Task:
     ended_at: datetime | None = None
     log_lines: list[str] = field(default_factory=list)
     returncode: int | None = None
+    log_file: Path | None = None
 
 
 class QueueManager:
-    def __init__(self, project_root: Path, max_parallel: int = 1) -> None:
+    def __init__(
+        self, project_root: Path, max_parallel: int = 1, log_dir: Path | None = None
+    ) -> None:
         # TODO: max_parallel > 1 will cause nextflow lock collisions — all pipelines
         # run from the same launch dir and share .nextflow.lock. Also currently
         # GPU-bound on MPS so parallelism doesn't help.
         self.project_root = project_root
         self.max_parallel = max_parallel
+        self.log_dir = log_dir
         self.tasks: list[Task] = []
         self._lock = threading.Lock()
         self._durations: dict[str, list[float]] = {}
@@ -108,6 +113,16 @@ class QueueManager:
     def _run_task(self, task: Task) -> None:
         cmd = ACTIONS_BY_NAME[task.type].cmd
         try:
+            log_path: Path | None = None
+            if self.log_dir:
+                date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+                ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+                fname = f"{task.type}_{ts}_{task.id[:8]}.log"
+                log_path = self.log_dir / date_str / fname
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                with self._lock:
+                    task.log_file = log_path
+
             proc = subprocess.Popen(
                 cmd,
                 cwd=self.project_root,
@@ -116,12 +131,19 @@ class QueueManager:
                 text=True,
             )
             assert proc.stdout is not None
-            for line in proc.stdout:
-                with self._lock:
-                    task.log_lines.append(line.rstrip("\n"))
-                    if len(task.log_lines) > MAX_LOG_LINES:
-                        task.log_lines = task.log_lines[-MAX_LOG_LINES:]
-            proc.wait()
+            with contextlib.ExitStack() as stack:
+                log_fh = stack.enter_context(open(log_path, "w")) if log_path else None
+                for line in proc.stdout:
+                    with self._lock:
+                        task.log_lines.append(line.rstrip("\n"))
+                        if len(task.log_lines) > MAX_LOG_LINES:
+                            task.log_lines = task.log_lines[-MAX_LOG_LINES:]
+                    if log_fh is not None:
+                        log_fh.write(line)
+                        log_fh.flush()
+                proc.wait()
+                if log_fh is not None:
+                    log_fh.write(f"\n[exit {proc.returncode}]\n")
             with self._lock:
                 task.returncode = proc.returncode
                 task.status = (

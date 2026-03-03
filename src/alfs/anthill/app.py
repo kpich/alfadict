@@ -23,6 +23,7 @@ def _task_to_dict(task: Task, est_duration: float | None = None) -> dict:
         "returncode": task.returncode,
         "log_count": len(task.log_lines),
         "est_duration": est_duration,
+        "log_file": str(task.log_file) if task.log_file else None,
     }
 
 
@@ -75,7 +76,7 @@ def task_logs(task_id: str):
     return jsonify({"lines": lines, "total": len(task.log_lines)})
 
 
-def main(project_root: Path, port: int = 5002) -> None:
+def main(project_root: Path, port: int = 5002, log_dir: Path | None = None) -> None:
     global _queue
-    _queue = QueueManager(project_root)
+    _queue = QueueManager(project_root, log_dir=log_dir)
     app.run(host="127.0.0.1", port=port, debug=False)
