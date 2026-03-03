@@ -19,6 +19,7 @@ class Sense(BaseModel):
     morph_base: str | None = None
     morph_relation: str | None = None
     updated_by_model: str | None = None
+    updated_at: str | None = None
 
 
 class Alf(BaseModel):

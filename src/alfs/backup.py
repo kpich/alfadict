@@ -24,6 +24,7 @@ def main() -> None:
 
     store = SenseStore(Path(args.senses_db))
     entries = store.all_entries()
+    timestamps = store.all_timestamps()
 
     # buckets keyed by (dir, file) where dir=first letter, file=digraph (first two)
     buckets: dict[tuple[str, str], list[dict]] = {}
@@ -35,9 +36,11 @@ def main() -> None:
             second = form[1].lower() if len(form) > 1 and form[1].isalpha() else ""
             digraph = first + second
             bucket_key = (first, digraph)
-        buckets.setdefault(bucket_key, []).append(
-            alf.model_dump(exclude_none=True, mode="json")
-        )
+        entry_dict = alf.model_dump(exclude_none=True, mode="json")
+        ts = timestamps.get(form)
+        if ts:
+            entry_dict["updated_at"] = ts
+        buckets.setdefault(bucket_key, []).append(entry_dict)
 
     repo = Path(args.senses_repo)
     repo.mkdir(parents=True, exist_ok=True)
