@@ -28,6 +28,7 @@ def select_top_n(
     n_labeled_counts: pl.DataFrame,  # columns: form (str), n_labeled (int)
     top_n: int,
     rng: np.random.Generator,
+    min_count: int,
     redirect_forms: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
     """Return up to top_n forms sampled proportionally to unlabeled instance count.
@@ -39,6 +40,7 @@ def select_top_n(
         total_counts.join(n_labeled_counts, on="form", how="left")
         .with_columns(pl.col("n_labeled").fill_null(0))
         .with_columns((pl.col("total") - pl.col("n_labeled")).alias("unlabeled"))
+        .filter(pl.col("total") >= min_count)
         .filter(
             pl.col("form").map_elements(
                 lambda f: bool(_WORD_RE.search(f)), return_dtype=pl.Boolean
@@ -68,6 +70,7 @@ def run(
     senses_db: str | Path | None = None,
     labeled_db: str | Path | None = None,
     seed: int | None = None,
+    min_count: int = 5,
 ) -> list[Path]:
     seg_dir = Path(seg_data_dir)
     parquet_files = list(seg_dir.glob("*/occurrences.parquet"))
@@ -103,7 +106,9 @@ def run(
         redirect_forms = {f for f, alf in entries.items() if alf.redirect is not None}
 
     rng = np.random.default_rng(seed)
-    forms = select_top_n(total_counts, n_labeled_counts, top_n, rng, redirect_forms)
+    forms = select_top_n(
+        total_counts, n_labeled_counts, top_n, rng, min_count, redirect_forms
+    )
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -131,6 +136,9 @@ def main() -> None:
     parser.add_argument("--senses-db", default=None, help="Path to senses.db")
     parser.add_argument("--labeled-db", default=None, help="Path to labeled.db")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed")
+    parser.add_argument(
+        "--min-count", type=int, default=5, help="Minimum raw corpus occurrence count"
+    )
     args = parser.parse_args()
 
     run(
@@ -140,6 +148,7 @@ def main() -> None:
         args.senses_db,
         args.labeled_db,
         args.seed,
+        min_count=args.min_count,
     )
 
 

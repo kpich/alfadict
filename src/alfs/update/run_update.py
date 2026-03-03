@@ -36,6 +36,9 @@ def main() -> None:
     parser.add_argument("--queue-dir", required=True, help="Path to clerk queue dir")
     parser.add_argument("--model", default="gemma2:9b")
     parser.add_argument("--top-n", type=int, default=10)
+    parser.add_argument(
+        "--min-count", type=int, default=5, help="Minimum raw corpus occurrence count"
+    )
     parser.add_argument("--context-chars", type=int, default=150)
     parser.add_argument("--max-samples", type=int, default=20)
     parser.add_argument("--max-occurrences", type=int, default=15)
@@ -67,6 +70,7 @@ def main() -> None:
             output_dir=targets_dir,
             senses_db=senses_db if senses_db.exists() else None,
             labeled_db=labeled_db if labeled_db.exists() else None,
+            min_count=args.min_count,
         )
         print(f"Selected {len(target_files)} targets.")
 
