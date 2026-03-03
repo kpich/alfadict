@@ -130,11 +130,11 @@ def test_min_count_1_includes_all():
     assert set(result) == {"a", "b"}
 
 
-def test_log_weight_reduces_head_dominance():
+def test_sqrt_weight_reduces_head_dominance():
     """A high-volume form does not completely crowd out a mid-volume form."""
     total = _total_counts({"common": 10_000, "mid": 100})
     labeled = _n_labeled_counts({})
-    # With raw weights, mid is selected with probability ~1 %; with log weights ~67 %.
+    # With raw weights, mid is selected ~1% of the time; with sqrt weights ~9%.
     # Run 200 trials and assert mid is chosen at least once.
     chosen = set()
     for seed in range(200):
