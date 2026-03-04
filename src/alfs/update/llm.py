@@ -2,6 +2,7 @@ import json
 import re
 from typing import Any
 
+import anthropic as _anthropic_sdk
 import ollama
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
@@ -12,9 +13,29 @@ _TIMEOUT = 600
 
 _client = ollama.Client(timeout=_TIMEOUT)
 
+_anthropic_client: _anthropic_sdk.Anthropic | None = None
+
+
+def _anthropic() -> _anthropic_sdk.Anthropic:
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = _anthropic_sdk.Anthropic()
+    return _anthropic_client
+
 
 def chat(model: str, prompt: str, format: dict[str, Any] | None = None) -> str:
-    """Send a single-turn chat to the given Ollama model and return the text."""
+    """Send a single-turn chat to the given model and return the text.
+
+    If model starts with 'claude-', routes to Anthropic API; otherwise Ollama.
+    The format arg is unused for Claude (JSON instructions are embedded in prompts).
+    """
+    if model.startswith("claude-"):
+        msg = _anthropic().messages.create(
+            model=model,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text
     response = _client.chat(
         model=model, messages=[{"role": "user", "content": prompt}], format=format
     )

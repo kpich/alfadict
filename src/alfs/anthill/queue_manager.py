@@ -4,12 +4,15 @@ import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
+import os
 from pathlib import Path
 import subprocess
 import threading
 import uuid
 
 from alfs.actions import ACTIONS_BY_NAME
+
+CLAUDE_MODEL = "claude-sonnet-4-6"
 
 
 class TaskStatus(str, Enum):
@@ -33,6 +36,7 @@ class Task:
     log_lines: list[str] = field(default_factory=list)
     returncode: int | None = None
     log_file: Path | None = None
+    use_claude: bool = False
 
 
 class QueueManager:
@@ -52,7 +56,7 @@ class QueueManager:
         t = threading.Thread(target=self._dispatch_loop, daemon=True)
         t.start()
 
-    def enqueue(self, task_type: str) -> Task:
+    def enqueue(self, task_type: str, use_claude: bool = False) -> Task:
         if task_type not in ACTIONS_BY_NAME:
             raise ValueError(f"Unsupported task type: {task_type!r}")
         task = Task(
@@ -60,6 +64,7 @@ class QueueManager:
             type=task_type,
             status=TaskStatus.pending,
             created_at=datetime.now(UTC),
+            use_claude=use_claude,
         )
         with self._lock:
             self.tasks.append(task)
@@ -123,12 +128,20 @@ class QueueManager:
                 with self._lock:
                     task.log_file = log_path
 
+            env = None
+            if task.use_claude:
+                env = {
+                    **os.environ,
+                    "SENSE_UPDATE_MODEL": CLAUDE_MODEL,
+                    "LABEL_MODEL": CLAUDE_MODEL,
+                }
             proc = subprocess.Popen(
                 cmd,
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                env=env,
             )
             assert proc.stdout is not None
             with contextlib.ExitStack() as stack:
