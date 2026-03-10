@@ -13,6 +13,7 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
    - Two senses cover the same concept and one is weaker/redundant.
    - The form is a parsing artifact rather than a real word or expression.
    - The form is a foreign word that would not appear in an English dictionary (occurring almost entirely in non-English text, not as a loanword or expression commonly used in English).
+   - Do NOT delete a sense merely because the form is a proper noun — proper names are valid dictionary entries.
    - Do NOT delete a sense merely because its examples list is empty.
    - If all senses are worth keeping, set `sense_num` to null.
 
