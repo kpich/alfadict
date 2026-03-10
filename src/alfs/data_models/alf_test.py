@@ -1,4 +1,4 @@
-from alfs.data_models.alf import Alf, Sense, parse_sense_key, sense_key
+from alfs.data_models.alf import Alf, Sense, morph_base_form, parse_sense_key, sense_key
 
 
 def test_sense_key_top_level():
@@ -38,6 +38,49 @@ def test_get_sense_top_level():
     )
     assert alf.get_sense("1") == "to move fast"
     assert alf.get_sense("2") == "to manage"
+
+
+def test_morph_base_form_no_senses():
+    alf = Alf(form="does", senses=[])
+    assert morph_base_form(alf) is None
+
+
+def test_morph_base_form_no_morph_base():
+    alf = Alf(form="does", senses=[Sense(definition="third-person singular of do")])
+    assert morph_base_form(alf) is None
+
+
+def test_morph_base_form_all_same():
+    alf = Alf(
+        form="does",
+        senses=[
+            Sense(definition="third-person singular of do", morph_base="do"),
+            Sense(definition="plural of doe", morph_base="do"),
+        ],
+    )
+    assert morph_base_form(alf) == "do"
+
+
+def test_morph_base_form_mixed_bases():
+    alf = Alf(
+        form="x",
+        senses=[
+            Sense(definition="sense 1", morph_base="a"),
+            Sense(definition="sense 2", morph_base="b"),
+        ],
+    )
+    assert morph_base_form(alf) is None
+
+
+def test_morph_base_form_some_without_base():
+    alf = Alf(
+        form="does",
+        senses=[
+            Sense(definition="third-person singular of do", morph_base="do"),
+            Sense(definition="standalone sense"),
+        ],
+    )
+    assert morph_base_form(alf) is None
 
 
 def test_get_sense_subsense():

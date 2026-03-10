@@ -65,6 +65,17 @@ def sense_key(idx: int, sub_idx: int | None = None) -> str:
     return key
 
 
+def morph_base_form(alf: Alf) -> str | None:
+    """Return the morph base form if all senses share the same non-None base, else
+    None."""
+    if not alf.senses:
+        return None
+    bases = {s.morph_base for s in alf.senses}
+    if len(bases) == 1:
+        return bases.pop()
+    return None
+
+
 def parse_sense_key(key: str) -> tuple[int, int | None]:
     """Parse a sense key to 0-based (top_idx, sub_idx).
 

@@ -16,7 +16,7 @@ import uuid
 
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import RewriteRequest
-from alfs.data_models.alf import Sense
+from alfs.data_models.alf import Sense, morph_base_form
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
 from alfs.update.refinement import prompts
@@ -102,9 +102,15 @@ def main() -> None:
         return
 
     for form, alf in selected:
+        base_name = morph_base_form(alf)
+        base_senses: list[Sense] | None = None
+        if base_name is not None:
+            base_alf = store.read(base_name)
+            if base_alf is not None and base_alf.senses:
+                base_senses = list(base_alf.senses)
         data = llm.chat_json(
             args.model,
-            prompts.rewrite_prompt(form, list(alf.senses)),
+            prompts.rewrite_prompt(form, list(alf.senses), base_name, base_senses),
             format=_REWRITE_SCHEMA,
         )
         returned = data["senses"]

@@ -21,6 +21,7 @@ import polars as pl
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import TrimSenseRequest
 from alfs.corpus import fetch_instances
+from alfs.data_models.alf import Sense, morph_base_form
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.update import llm
@@ -122,9 +123,18 @@ def main() -> None:
             for i in range(len(alf.senses))
         ]
 
+        base_name = morph_base_form(alf)
+        base_senses: list[Sense] | None = None
+        if base_name is not None:
+            base_alf = store.read(base_name)
+            if base_alf is not None and base_alf.senses:
+                base_senses = list(base_alf.senses)
+
         data = llm.chat_json(
             args.model,
-            prompts.trim_sense_prompt(form, list(alf.senses), examples),
+            prompts.trim_sense_prompt(
+                form, list(alf.senses), examples, base_name, base_senses
+            ),
             format=_TRIM_SCHEMA,
         )
 
