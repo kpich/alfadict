@@ -15,6 +15,7 @@ You are a lexicographer performing sense induction for English words. Process al
    - If all sentences are already covered by existing definitions, output an empty senses list.
    - If the form is a parsing artifact (garbled tokens, stray punctuation) rather than a real word, output an empty senses list.
    - If the form is a foreign word that would not appear in an English dictionary (occurring almost entirely in non-English text, not as a loanword), output an empty senses list.
+   - Proper nouns (names of people, places, organizations, etc.) are valid entries — use `proper_noun` as the part of speech and define them as you would any other word.
    - Do NOT propose senses that are nearly identical to existing definitions.
    - For each sense, write a concise one-sentence definition and assign a part of speech from: noun, verb, adjective, adverb, preposition, conjunction, pronoun, determiner, interjection, proper_noun, other.
 
