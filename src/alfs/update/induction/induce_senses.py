@@ -15,7 +15,7 @@ import uuid
 
 import polars as pl
 
-from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.alf import Alf, Sense, morph_base_form
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.pos import PartOfSpeech
 from alfs.data_models.sense_store import SenseStore
@@ -82,6 +82,11 @@ def run(
         entry = store.read(form)
         if entry:
             existing_defs = [s.definition for s in entry.senses]
+            base_name = morph_base_form(entry)
+            if base_name is not None:
+                base_entry = store.read(base_name)
+                if base_entry is not None:
+                    existing_defs.extend(s.definition for s in base_entry.senses)
 
     occ_path = Path(seg_data_dir) / form_prefix(form) / "occurrences.parquet"
     if not occ_path.exists():

@@ -3,7 +3,12 @@ from collections.abc import Sequence
 from alfs.data_models.alf import Alf, Sense
 
 
-def rewrite_prompt(form: str, senses: list[Sense]) -> str:
+def rewrite_prompt(
+    form: str,
+    senses: list[Sense],
+    base_name: str | None = None,
+    base_senses: list[Sense] | None = None,
+) -> str:
     lines = [
         "You are a lexicographer improving dictionary entries.",
         "",
@@ -17,6 +22,16 @@ def rewrite_prompt(form: str, senses: list[Sense]) -> str:
         lines.append(f"  {i}.{pos_tag} {s.definition}")
         for sub in s.subsenses or []:
             lines.append(f"     \u2022 {sub}")
+    if base_senses:
+        header = (
+            f"Base form '{base_name}' (context only):"
+            if base_name
+            else "Base form context (context only):"
+        )
+        lines += ["", header]
+        for i, s in enumerate(base_senses, 1):
+            pos_tag = f" [{s.pos.value}]" if s.pos else ""
+            lines.append(f"  {i}.{pos_tag} {s.definition}")
     lines += [
         "",
         "Respond with ONLY valid JSON: "
@@ -137,7 +152,13 @@ def morph_analyze_prompt(
     )
 
 
-def trim_sense_prompt(form: str, senses: list[Sense], examples: list[list[str]]) -> str:
+def trim_sense_prompt(
+    form: str,
+    senses: list[Sense],
+    examples: list[list[str]],
+    base_name: str | None = None,
+    base_senses: list[Sense] | None = None,
+) -> str:
     lines = [
         "You are a lexicographer reviewing dictionary senses for redundancy.",
         "",
@@ -151,6 +172,16 @@ def trim_sense_prompt(form: str, senses: list[Sense], examples: list[list[str]])
             lines.append(f"     \u2022 {sub}")
         for ex in exs:
             lines.append(f"     \u2014 {ex}")
+    if base_senses:
+        header = (
+            f"Base form '{base_name}' (context only):"
+            if base_name
+            else "Base form context (context only):"
+        )
+        lines += ["", header]
+        for i, s in enumerate(base_senses, 1):
+            pos_tag = f" [{s.pos.value}]" if s.pos else ""
+            lines.append(f"  {i}.{pos_tag} {s.definition}")
     lines += [
         "",
         "Should any sense be deleted? Delete if two senses cover the same concept"
