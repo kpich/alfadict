@@ -44,5 +44,15 @@ Plotly.newPlot('chart', d.traces, d.layout, {displayModeBar: false, responsive: 
 </script>
 {% endif %}
 
+{% if has_bar_chart %}
+<h2 class="mt-4">Sense Distribution</h2>
+<div id="bar-chart"></div>
+{% if not has_chart %}<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>{% endif %}
+<script>
+var bd = {{ bar_chart_data | safe }};
+Plotly.newPlot('bar-chart', bd.traces, bd.layout, {displayModeBar: false, responsive: false});
+</script>
+{% endif %}
+
 <p class="mt-4"><a href="/">← Back to word list</a></p>
 {% endblock %}
