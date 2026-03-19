@@ -15,12 +15,12 @@ process COMPILE {
     uv run --project ${launchDir} --no-sync python -m alfs.viewer.compile \
         --senses-db ${params.senses_db} --labeled-db ${params.labeled_db} \
         --docs docs.parquet \
-        --by-prefix-dir ${params.seg_data_dir}/latest/by_prefix \
+        --by-prefix-dir ${params.seg_data_dir}/by_prefix \
         --output data.json
     """
 }
 
 workflow {
-    docs = file("${params.text_data_dir}/latest/docs.parquet")
+    docs = file("${params.text_data_dir}/docs.parquet")
     COMPILE(Channel.value(docs))
 }

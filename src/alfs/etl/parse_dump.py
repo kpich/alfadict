@@ -18,11 +18,27 @@ import mwparserfromhell
 import polars as pl
 
 from alfs.data_models.doc import Doc
+from alfs.etl.sources import SOURCES
 
-BASE_URLS = {
-    "wikibooks": "https://en.wikibooks.org/wiki/",
-    "wikisource": "https://en.wikisource.org/wiki/",
-}
+BASE_URLS = {name: s.base_url for name, s in SOURCES.items()}
+
+
+def parse_page(page: dict, source: str) -> Doc:
+    """Convert a raw page dict to a Doc (strips wikitext, computes doc_id)."""
+    base_url = BASE_URLS[source]
+    text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
+    doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
+    title = page["title"]
+    source_url = f"{base_url}{quote(title.replace(' ', '_'))}"
+    return Doc(
+        doc_id=doc_id,
+        title=title,
+        author=page["author"],
+        year=page["year"],
+        text=text,
+        source_url=source_url,
+        source=source,
+    )
 
 
 def main() -> None:
@@ -43,8 +59,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    base_url = BASE_URLS[args.source]
-
     with open(args.pages) as f:
         all_pages = [json.loads(line) for line in f]
     shard = all_pages[args.shard_index :: args.num_shards]
@@ -53,23 +67,7 @@ def main() -> None:
         f"Shard {args.shard_index}/{args.num_shards}: {len(shard)} of {n_total} pages"
     )
 
-    docs: list[Doc] = []
-    for page in shard:
-        text = mwparserfromhell.parse(page["wikitext"]).strip_code().strip()
-        doc_id = hashlib.sha256(text.encode()).hexdigest()[:8]
-        title = page["title"]
-        source_url = f"{base_url}{quote(title.replace(' ', '_'))}"
-        docs.append(
-            Doc(
-                doc_id=doc_id,
-                title=title,
-                author=page["author"],
-                year=page["year"],
-                text=text,
-                source_url=source_url,
-                source=args.source,
-            )
-        )
+    docs = [parse_page(page, args.source) for page in shard]
 
     print(f"Writing {len(docs)} docs to {args.output}...")
     df = pl.DataFrame([d.model_dump() for d in docs])
