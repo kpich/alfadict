@@ -7,8 +7,8 @@ cd "$(dirname "$0")/.."
 #SOURCE=wikisource
 #SOURCE=wikipedia
 #SOURCE=gutenberg
-#SOURCE=cc_news
-SOURCE=wikisource
+SOURCE=cc_news
+#SOURCE=wikisource
 
 make download SOURCE="$SOURCE"
 make etl SOURCE="$SOURCE"

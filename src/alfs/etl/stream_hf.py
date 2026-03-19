@@ -10,9 +10,7 @@ def stream_hf(dataset_name: str) -> Iterator[dict]:
     """Yield page dicts from a HuggingFace dataset (streaming mode)."""
     from datasets import load_dataset  # type: ignore[import-untyped]
 
-    ds = load_dataset(
-        dataset_name, split="train", streaming=True, trust_remote_code=True
-    )
+    ds = load_dataset(dataset_name, split="train", streaming=True)
 
     for item in ds:
         text = item.get("text", "") or ""
