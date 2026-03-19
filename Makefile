@@ -3,21 +3,29 @@
 SENSES_DB          ?= ../alfs_data/senses.db
 LABELED_DB         ?= ../alfs_data/labeled.db
 CLERK_QUEUE        ?= ../clerk_queue
-DOCS               ?= ../text_data/latest/docs.parquet
+TEXT_DATA_DIR      ?= ../text_data
+CACHE_DIR          ?= $(TEXT_DATA_DIR)/cache
+NGRAM_CACHE        ?= $(TEXT_DATA_DIR)/ngram_cache.npy
+DOCS               ?= $(TEXT_DATA_DIR)/docs.parquet
 SENSES_REPO        ?= ../alfs_senses
-SEG_DATA_DIR       ?= ../seg_data/latest/by_prefix
+SEG_DATA_DIR       ?= ../seg_data/by_prefix
 GDRIVE_REMOTE      ?= gdrive
 GDRIVE_DEST        ?= alfs_backup
 NWORDS             ?= 5
 SENSE_UPDATE_MODEL ?= qwen2.5:32b
 LABEL_MODEL        ?= gemma2:9b
 CC_TASKS_DIR       ?= ../cc_tasks
+SOURCE             ?= wikibooks
+N_DOCS             ?= 10000
 
 etl:
-	bash scripts/etl.sh
+	uv run --no-sync python -m alfs.etl.augment \
+		--source $(SOURCE) --corpus $(DOCS) \
+		--cache-dir $(CACHE_DIR) --ngram-cache $(NGRAM_CACHE) --n-docs $(N_DOCS)
 
 seg:
-	bash scripts/segment.sh
+	uv run --no-sync python -m alfs.seg.augment \
+		--docs $(DOCS) --seg-data-dir $(SEG_DATA_DIR)
 
 update:
 	bash scripts/update.sh \
@@ -152,14 +160,12 @@ backup:
 backup-gdrive:
 	rclone sync ../text_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/text_data \
 		--exclude "cache/**" \
-		--exclude "latest" \
 		--progress
 	rclone sync ../alfs_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/alfs_data \
 		--exclude "*.db-wal" \
 		--exclude "*.db-shm" \
 		--progress
 	rclone sync ../seg_data $(GDRIVE_REMOTE):$(GDRIVE_DEST)/seg_data \
-		--exclude "latest" \
 		--progress
 
 conductor:

@@ -9,32 +9,18 @@ Usage:
 
 import argparse
 import bz2
+from collections.abc import Iterator
 import json
+from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
 NS = "http://www.mediawiki.org/xml/export-0.11/"
 
-BASE_URLS = {
-    "wikibooks": "https://en.wikibooks.org/wiki/",
-    "wikisource": "https://en.wikisource.org/wiki/",
-}
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Stream MediaWiki XML dump to JSONL")
-    parser.add_argument("--dump", required=True, help="Path to .xml.bz2 dump file")
-    parser.add_argument(
-        "--source",
-        required=True,
-        choices=list(BASE_URLS),
-        help="Source corpus name",
-    )
-    parser.add_argument("--output", required=True, help="Output JSONL file path")
-    args = parser.parse_args()
-
-    count = 0
-    with bz2.open(args.dump) as f, open(args.output, "w") as out:
+def stream_pages(dump_path: Path, source: str) -> Iterator[dict]:
+    """Yield page dicts from a MediaWiki XML dump (namespace 0, non-redirects)."""
+    with bz2.open(dump_path) as f:
         for _event, elem in ET.iterparse(f, events=["end"]):
             if elem.tag != f"{{{NS}}}page":
                 continue
@@ -68,7 +54,7 @@ def main() -> None:
             timestamp_elem = revision.find(f"{{{NS}}}timestamp")
             timestamp = timestamp_elem.text if timestamp_elem is not None else ""
             year = int(timestamp[:4]) if timestamp else None
-            if args.source == "wikisource" and wikitext:
+            if source == "wikisource" and wikitext:
                 m = re.search(r"\|\s*year\s*=\s*(\d{4})", wikitext)
                 if m:
                     year = int(m.group(1))
@@ -81,16 +67,33 @@ def main() -> None:
             )
             author = username_elem.text if username_elem is not None else None
 
-            record = {
+            yield {
                 "title": title,
                 "wikitext": wikitext,
                 "year": year,
                 "author": author,
-                "source": args.source,
+                "source": source,
             }
-            out.write(json.dumps(record) + "\n")
-            count += 1
             elem.clear()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Stream MediaWiki XML dump to JSONL")
+    parser.add_argument("--dump", required=True, help="Path to .xml.bz2 dump file")
+    parser.add_argument(
+        "--source",
+        required=True,
+        choices=["wikibooks", "wikisource"],
+        help="Source corpus name",
+    )
+    parser.add_argument("--output", required=True, help="Output JSONL file path")
+    args = parser.parse_args()
+
+    count = 0
+    with open(args.output, "w") as out:
+        for page in stream_pages(Path(args.dump), args.source):
+            out.write(json.dumps(page) + "\n")
+            count += 1
 
     print(f"Found {count} pages, wrote to {args.output}")
 
