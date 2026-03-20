@@ -112,6 +112,39 @@ def test_apply_rewrite_sense_count_mismatch(tmp_path: Path):
     assert not list((queue_dir / "pending").glob("*.json"))
 
 
+def test_apply_trim_sense_first(tmp_path: Path):
+    """sense_num=1 (1-based) maps to index 0, i.e. the first sense."""
+    cc_dir, senses_db, queue_dir = _setup(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "bank",
+        lambda _: Alf(
+            form="bank",
+            senses=[
+                Sense(id="s1", definition="financial institution"),
+                Sense(id="s2", definition="side of a river"),
+            ],
+        ),
+    )
+
+    output = CCTrimSenseOutput(
+        id="test4a", form="bank", sense_num=1, reason="redundant"
+    )
+    (cc_dir / "done" / "trim_sense" / "test4a.json").write_text(
+        output.model_dump_json()
+    )
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "trim_sense" / "test4a.json").exists()
+    pending_files = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending_files) == 1
+    req = json.loads(pending_files[0].read_text())
+    assert req["type"] == "trim_sense"
+    assert req["sense_id"] == "s1"
+
+
 def test_apply_trim_sense(tmp_path: Path):
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
 
