@@ -12,7 +12,9 @@ You are a lexicographer confirming British/American spelling variant pairs. Proc
    - The transformation happened to produce a real word that is not actually the American spelling of the variant
    - One form is not a recognizable British spelling of the other
 
-4. Write the output JSON to `../cc_tasks/done/spelling_variant/{same_filename}` with this schema:
+4. If no pairs are confirmed (confirmed list would be empty): delete the pending file and move to the next task — do NOT write an output file.
+
+   Otherwise, write the output JSON to `../cc_tasks/done/spelling_variant/{same_filename}` with this schema:
    ```json
    {
      "type": "spelling_variant",
@@ -25,8 +27,6 @@ You are a lexicographer confirming British/American spelling variant pairs. Proc
      ]
    }
    ```
-   The `confirmed` list contains only the pairs you have confirmed as genuine spelling variants. It may be empty.
-
-5. Delete the pending file after writing the output.
+   The `confirmed` list contains only the pairs you have confirmed as genuine spelling variants. Then delete the pending file.
 
 Process ALL matching pending files, not just the first one.

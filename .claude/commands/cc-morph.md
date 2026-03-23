@@ -31,7 +31,9 @@ You are a lexicographer identifying morphological derivations between dictionary
    - `proposed_definition`: a concise reference like "plural of dog (n.)". Note: when this link is applied, the derived sense's current definition will be promoted to the base form's entry (added as a new sense there), and this proposed_definition will replace it on the derived form. Only list senses that are genuine inflections; unlisted senses remain in the derived form as independent meanings.
    - `promote_to_parent`: `true` if the derived sense's current definition represents content not already present in the base form's senses; `false` if the base already has an equivalent meaning (to avoid duplicating it).
 
-5. Write the output JSON to `../cc_tasks/done/morph_redirect/{same_filename}` with this schema:
+5. If no morphological links are found (relations list would be empty): delete the pending file and move to the next task — do NOT write an output file.
+
+   Otherwise, write the output JSON to `../cc_tasks/done/morph_redirect/{same_filename}` with this schema:
    ```json
    {
      "type": "morph_redirect",
@@ -49,8 +51,6 @@ You are a lexicographer identifying morphological derivations between dictionary
      ]
    }
    ```
-   The `relations` list may be empty if no morphological links are found.
-
-6. Delete the pending file after writing the output.
+   Then delete the pending file.
 
 Process ALL matching pending files, not just the first one.

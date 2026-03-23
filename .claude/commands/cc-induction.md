@@ -19,7 +19,9 @@ You are a lexicographer performing sense induction for English words. Process al
    - Do NOT propose senses that are nearly identical to existing definitions.
    - For each sense, write a concise one-sentence definition and assign a part of speech from: noun, verb, adjective, adverb, preposition, conjunction, pronoun, determiner, interjection, proper_noun, other.
 
-4. Write the output JSON to `../cc_tasks/done/induction/<same_filename>` with this schema:
+4. If no new senses are needed (senses list would be empty): delete the pending file and move to the next task — do NOT write an output file.
+
+   Otherwise, write the output JSON to `../cc_tasks/done/induction/<same_filename>` with this schema:
    ```json
    {
      "type": "induction",
@@ -31,8 +33,6 @@ You are a lexicographer performing sense induction for English words. Process al
      ]
    }
    ```
-   The `senses` list may be empty if no new senses are needed.
-
-5. Delete the pending file after writing the output.
+   Then delete the pending file.
 
 Process ALL matching pending files, not just the first one.

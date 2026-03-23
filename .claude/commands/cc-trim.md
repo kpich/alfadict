@@ -17,7 +17,9 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
    - Do NOT delete a sense merely because its examples list is empty.
    - If all senses are worth keeping, set `sense_num` to null.
 
-4. Write the output JSON to `../cc_tasks/done/trim_sense/{same_filename}` with this schema:
+4. If no sense should be deleted: delete the pending file and move to the next task — do NOT write an output file.
+
+   Otherwise, write the output JSON to `../cc_tasks/done/trim_sense/{same_filename}` with this schema:
    ```json
    {
      "type": "trim_sense",
@@ -27,8 +29,6 @@ You are a lexicographer reviewing dictionary senses for redundancy. Process all 
      "reason": "brief explanation"
    }
    ```
-   `sense_num` is 1-based (sense 1 = first sense). Set to null if no sense should be deleted.
-
-5. Delete the pending file after writing the output.
+   `sense_num` is 1-based (sense 1 = first sense). Then delete the pending file.
 
 Process ALL matching pending files, not just the first one.
