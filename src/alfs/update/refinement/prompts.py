@@ -142,8 +142,15 @@ def morph_analyze_prompt(
         "  - base_sense_idx: index into base form's senses\n"
         "  - relation: a short description of the inflectional relationship\n"
         '    (e.g. "plural", "verbal inflection", "comparative form")\n'
-        "  - proposed_definition: a concise dictionary-style definition\n"
+        "  - proposed_definition: a concise reference definition\n"
         '    (e.g. "plural form of dog (n.)")\n'
+        "\n"
+        "When a morph link is applied, the derived sense's CURRENT definition will be\n"
+        "promoted to the base form's entry (added as a new sense if not already\n"
+        "present). The proposed_definition will replace it on the derived form as a\n"
+        "brief reference. Only list senses that are genuine inflections; independent\n"
+        "meanings of the derived form should not be listed — they will remain on the\n"
+        "derived form untouched.\n"
         "\n"
         'Respond with ONLY valid JSON: {"relations": [{"derived_sense_idx": 0,\n'
         '"base_sense_idx": 1, "relation": "plural",\n'

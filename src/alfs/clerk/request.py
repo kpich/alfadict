@@ -208,6 +208,8 @@ class MorphRedirectRequest(BaseModel):
     def apply(self, sense_store: SenseStore, occ_store: OccurrenceStore | None) -> None:
         idx = self.derived_sense_idx
         after_sense = self.after
+        before_sense = self.before
+        base_form = self.base_form
 
         def apply_fn(existing: Alf | None) -> Alf:
             assert existing is not None
@@ -216,6 +218,27 @@ class MorphRedirectRequest(BaseModel):
             return existing.model_copy(update={"senses": senses})
 
         sense_store.update(self.form, apply_fn)
+
+        # Promote original sense content to parent (dedup by definition).
+        # morph_base/morph_relation/updated_by_model/updated_at are not copied —
+        # the promoted sense is an independent sense on the base form.
+        promoted = Sense(
+            definition=before_sense.definition,
+            pos=before_sense.pos,
+            subsenses=before_sense.subsenses,
+        )
+
+        def add_to_parent(parent: Alf | None) -> Alf:
+            if parent is None:
+                return Alf(form=base_form, senses=[promoted])
+            existing_defs = {s.definition.strip().lower() for s in parent.senses}
+            if promoted.definition.strip().lower() in existing_defs:
+                return parent
+            return parent.model_copy(
+                update={"senses": list(parent.senses) + [promoted]}
+            )
+
+        sense_store.update(base_form, add_to_parent)
 
 
 class SetRedirectRequest(BaseModel):
