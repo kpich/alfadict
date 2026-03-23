@@ -16,7 +16,9 @@ You are a lexicographer auditing dictionary entries for invalid or artifact word
    - Do NOT delete proper nouns — they are valid dictionary entries.
    - Do NOT delete a form merely because its examples list is empty.
 
-4. Write the output JSON to `../cc_tasks/done/delete_entry/{same_filename}` with this schema:
+4. If the entry should be kept: delete the pending file and move to the next task — do NOT write an output file.
+
+   Otherwise, write the output JSON to `../cc_tasks/done/delete_entry/{same_filename}` with this schema:
    ```json
    {
      "type": "delete_entry",
@@ -26,8 +28,6 @@ You are a lexicographer auditing dictionary entries for invalid or artifact word
      "reason": "brief explanation"
    }
    ```
-   Set `should_delete` to false if the entry should be kept.
-
-5. Delete the pending file after writing the output.
+   Then delete the pending file.
 
 Process ALL matching pending files, not just the first one.
