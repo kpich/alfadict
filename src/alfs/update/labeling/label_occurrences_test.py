@@ -66,3 +66,47 @@ def test_build_sense_menu_broken_redirect_raises(tmp_path):
     store = _store(tmp_path, alias)
     with pytest.raises(ValueError, match="nonexistent"):
         build_sense_menu(store, "Run")
+
+
+def test_build_sense_menu_morph_base_senses_are_selectable(tmp_path):
+    dog = _alf("dog", "a domesticated animal", "an unattractive person")
+    dogs = Alf(
+        form="dogs",
+        senses=[
+            Sense(definition="plural of dog", morph_base="dog"),
+            Sense(definition="harasses persistently", morph_base="dog"),
+        ],
+    )
+    store = _store(tmp_path, dog, dogs)
+    menu, key_map = build_sense_menu(store, "dogs")
+
+    # dogs' own senses at 1 and 2
+    assert "1. plural of dog" in menu
+    assert "2. harasses persistently" in menu
+    assert key_map["1"] == dogs.senses[0].id
+    assert key_map["2"] == dogs.senses[1].id
+
+    # dog's senses numbered 3 and 4, selectable
+    assert "3. a domesticated animal" in menu
+    assert "4. an unattractive person" in menu
+    assert key_map["3"] == dog.senses[0].id
+    assert key_map["4"] == dog.senses[1].id
+
+
+def test_build_sense_menu_redirect_then_morph_base(tmp_path):
+    dog = _alf("dog", "a domesticated animal")
+    dogs = Alf(
+        form="dogs",
+        senses=[Sense(definition="plural of dog", morph_base="dog")],
+    )
+    Dogs = Alf(form="Dogs", senses=[], redirect="dogs")
+    store = _store(tmp_path, dog, dogs, Dogs)
+    menu, key_map = build_sense_menu(store, "Dogs")
+
+    # dogs' own sense at 1
+    assert "1. plural of dog" in menu
+    assert key_map["1"] == dogs.senses[0].id
+
+    # dog's sense at 2, selectable
+    assert "2. a domesticated animal" in menu
+    assert key_map["2"] == dog.senses[0].id

@@ -81,8 +81,13 @@ def run(
         store = SenseStore(Path(senses_db))
         entry = store.read(form)
         if entry:
-            existing_defs = [s.definition for s in entry.senses]
-            base_name = morph_base_form(entry)
+            resolved = entry
+            if entry.redirect:
+                canonical = store.read(entry.redirect)
+                if canonical:
+                    resolved = canonical
+            existing_defs = [s.definition for s in resolved.senses]
+            base_name = morph_base_form(resolved)
             if base_name is not None:
                 base_entry = store.read(base_name)
                 if base_entry is not None:
