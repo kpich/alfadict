@@ -72,10 +72,12 @@ def build_sense_menu(store: SenseStore, form: str) -> tuple[str, dict[str, str]]
     if base_name is not None:
         base_alf = store.read(base_name)
         if base_alf is not None and base_alf.senses:
-            lines.append(f"\nBase form '{base_name}' (context only):")
-            for i, sense in enumerate(base_alf.senses, 1):
+            lines.append(f"\nBase form '{base_name}':")
+            for i, sense in enumerate(base_alf.senses):
+                display = str(len(target_alf.senses) + i + 1)
+                key_map[display] = sense.id
                 pos_tag = f" [{sense.pos.value}]" if sense.pos else ""
-                lines.append(f"{i}.{pos_tag} {sense.definition}")
+                lines.append(f"{display}.{pos_tag} {sense.definition}")
     return "\n".join(lines), key_map
 
 
