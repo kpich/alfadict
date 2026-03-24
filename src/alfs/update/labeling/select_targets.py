@@ -25,26 +25,43 @@ _WORD_RE = re.compile(r"[a-zA-Z]")
 
 def select_top_n(
     total_counts: pl.DataFrame,
-    n_covered_counts: pl.DataFrame,
+    labeled_counts: pl.DataFrame,
     top_n: int,
     rng: np.random.Generator,
     min_count: int,
     redirect_forms: set[str] | frozenset[str] = frozenset(),
     smoothing_alpha: float = 0.0,
 ) -> list[str]:
-    """Return up to top_n forms sampled proportionally to sqrt(need_work count).
+    """Return up to top_n forms sampled proportionally to sqrt(estimated need_work).
 
     Weights are sqrt-transformed to compress Zipfian dynamic range while still
     oversampling the head: a form with 10k needy occurrences is ~10× more
     likely than one with 100, not 100×.
-    smoothing_alpha adds a pseudocount so no form has weight 0 (Laplace smoothing).
+
+    bad_rate is estimated from labeled instances with Laplace smoothing:
+        bad_rate = (n_labeled - n_covered + alpha) / (n_labeled + alpha)
+    and extrapolated over the full corpus: need_work = total * bad_rate.
+    Cold-start (no labels, alpha=0) uses bad_rate=1.0 (pessimistic).
+    labeled_counts must have columns ["form", "n_labeled", "n_covered"].
     """
     candidates = (
-        total_counts.join(n_covered_counts, on="form", how="left")
-        .with_columns(pl.col("n_covered").fill_null(0))
+        total_counts.join(labeled_counts, on="form", how="left")
         .with_columns(
-            (pl.col("total") - pl.col("n_covered") + smoothing_alpha).alias("need_work")
+            [
+                pl.col("n_labeled").fill_null(0),
+                pl.col("n_covered").fill_null(0),
+            ]
         )
+        .with_columns(
+            pl.when(pl.col("n_labeled") + smoothing_alpha > 0)
+            .then(
+                (pl.col("n_labeled") - pl.col("n_covered") + smoothing_alpha)
+                / (pl.col("n_labeled") + smoothing_alpha)
+            )
+            .otherwise(pl.lit(1.0))
+            .alias("bad_rate")
+        )
+        .with_columns((pl.col("total") * pl.col("bad_rate")).alias("need_work"))
         .filter(pl.col("total") >= min_count)
         .filter(
             pl.col("form").map_elements(
@@ -96,11 +113,16 @@ def run(
     if labeled_db and Path(labeled_db).exists():
         cbf = OccurrenceStore(Path(labeled_db)).count_by_form()
         col = "n_excellent" if use_excellent_threshold else "n_total"
-        n_covered_counts = cbf.rename({col: "n_covered"}).select(["form", "n_covered"])
+        labeled_counts = cbf.select(
+            [
+                "form",
+                pl.col("n_total").alias("n_labeled"),
+                pl.col(col).alias("n_covered"),
+            ]
+        )
     else:
-        n_covered_counts = pl.DataFrame(
-            {"form": [], "n_covered": []},
-            schema={"form": pl.String, "n_covered": pl.Int64},
+        labeled_counts = pl.DataFrame(
+            schema={"form": pl.String, "n_labeled": pl.Int64, "n_covered": pl.Int64}
         )
 
     redirect_forms: set[str] = set()
@@ -112,7 +134,7 @@ def run(
     rng = np.random.default_rng(seed)
     forms = select_top_n(
         total_counts,
-        n_covered_counts,
+        labeled_counts,
         top_n,
         rng,
         min_count,
