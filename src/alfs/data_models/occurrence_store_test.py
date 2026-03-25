@@ -73,12 +73,10 @@ def test_count_by_form(store: OccurrenceStore) -> None:
     df = store.count_by_form().sort("form")
     run_row = df.filter(pl.col("form") == "run").row(0, named=True)
     assert run_row["n_total"] == 3
-    assert run_row["n_good"] == 2
     assert run_row["n_bad"] == 1
     assert run_row["n_excellent"] == 1
     walk_row = df.filter(pl.col("form") == "walk").row(0, named=True)
     assert walk_row["n_total"] == 1
-    assert walk_row["n_good"] == 0
     assert walk_row["n_bad"] == 1
 
 

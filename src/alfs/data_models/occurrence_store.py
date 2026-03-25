@@ -18,7 +18,6 @@ _SCHEMA = {
 _COUNT_SCHEMA = {
     "form": pl.String,
     "n_total": pl.Int64,
-    "n_good": pl.Int64,
     "n_bad": pl.Int64,
     "n_excellent": pl.Int64,
 }
@@ -97,7 +96,6 @@ class OccurrenceStore:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT form, COUNT(*) as n_total, "
-                "SUM(CASE WHEN rating IN (1, 2) THEN 1 ELSE 0 END) as n_good, "
                 "SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END) as n_bad, "
                 "SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as n_excellent "
                 "FROM labeled GROUP BY form"
