@@ -6,15 +6,19 @@ def induction_critic_prompt(
         numbered = "\n".join(f"{i+1}. {d}" for i, d in enumerate(existing_defs))
         existing_block = f"Existing senses:\n{numbered}\n\n"
     return (
-        f"This is an English language dictionary. "
+        f"This is a broad-coverage English language dictionary — broader than a "
+        f'traditional dictionary. It includes individual letters (e.g. "D", "K"), '
+        f"abbreviations, acronyms, symbols, slang, technical jargon, and other tokens "
+        f"with recognized public meaning, even if they would not appear in a "
+        f"conventional dictionary. "
         f'Review this proposed dictionary sense for "{form}".\n'
         f"{existing_block}"
         f'Proposed definition: "{definition}"\n\n'
         f"Default to accepting. Only reject if you are highly confident of "
         f"one of these:\n"
-        f'- "{form}" is a parser artifact, OCR error, or not a real word/expression '
-        f"(garbled tokens, stray punctuation, malformed sequences). "
-        f"Rare, archaic, or obscure real words are fine.\n"
+        f'- "{form}" is a parser artifact, OCR error, or has no recognized meaning '
+        f"(garbled tokens, stray punctuation, malformed sequences with no known use). "
+        f"Rare, archaic, obscure, or non-standard forms with real uses are fine.\n"
         f'- "{form}" is a foreign word that would not appear in an English '
         f"dictionary — it occurs almost entirely in non-English text rather than "
         f"as a loanword or expression commonly used in English. "
@@ -42,10 +46,9 @@ def induction_prompt(
 
     existing_block = ""
     opt_out_clause = (
-        f'If "{form}" is a parsing artifact rather than a real word or expression, '
-        f"or if it is a foreign word that would not appear in an English dictionary "
-        f"(occurring almost entirely in non-English text rather than as a loanword or "
-        f"expression commonly used in English), "
+        f'If "{form}" is a parsing artifact with no recognized meaning (garbled tokens,'
+        f" stray punctuation), or if it is a foreign word occurring almost entirely in "
+        f"non-English text rather than as a loanword or expression used in English, "
         f'output {{"all_covered": true, "senses": []}}.\n'
         f'Otherwise, find all major distinct meanings of "{form}"'
         f" clearly represented in these sentences.\n"
@@ -56,18 +59,22 @@ def induction_prompt(
             f"This word already has these senses defined:\n" f"{numbered_defs}\n" f"\n"
         )
         opt_out_clause = (
-            f"If all sentences are already covered by the existing senses, or if"
-            f' "{form}" is a parsing artifact rather than a real word or expression, '
-            f"or if it is a foreign word that would not appear in an English "
-            f"dictionary (occurring almost entirely in non-English text rather "
-            f"than as a loanword or expression commonly used in English), "
+            f"If all sentences are already covered by the existing senses, or if "
+            f'"{form}" is a parsing artifact with no recognized meaning (garbled '
+            f"tokens, stray punctuation), or if it is a foreign word occurring almost "
+            f"entirely in non-English text rather than as a loanword or expression "
+            f"used in English, "
             f'output {{"all_covered": true, "senses": []}}.\n'
             f'Otherwise, find all major distinct meanings of "{form}"'
             f" in these sentences that are NOT already covered above.\n"
         )
 
     return (
-        f'You are a lexicographer. Below are {n} sentences containing "{form}".\n'
+        f"You are a lexicographer working on a broad-coverage English dictionary — "
+        f"broader than a traditional dictionary. It includes individual letters "
+        f'(e.g. "D", "K"), abbreviations, acronyms, symbols, slang, technical jargon, '
+        f"and other tokens with recognized public meaning.\n"
+        f'Below are {n} sentences containing "{form}".\n'
         f"{existing_block}"
         f"{opt_out_clause}"
         f"Only include a sense if the sentences clearly attest that meaning as a"
