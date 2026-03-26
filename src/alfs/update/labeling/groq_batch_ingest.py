@@ -48,7 +48,7 @@ def ingest(
     occ_store = OccurrenceStore(Path(labeled_db))
 
     key_map_cache: dict[str, dict[str, str]] = {}
-    upsert_rows: list[tuple[str, str, int, str, int]] = []
+    upsert_rows: list[tuple[str, tuple[str, str, int, str, int]]] = []  # (model, row)
     skipped = 0
 
     with Path(batch_output).open() as f:
@@ -126,10 +126,17 @@ def ingest(
                     continue
                 uuid_key = key_map[display_key]
 
-            upsert_rows.append((form, doc_id, byte_offset, uuid_key, rating.value))
+            model_name = str(item.get("model", "unknown"))
+            upsert_rows.append(
+                (model_name, (form, doc_id, byte_offset, uuid_key, rating.value))
+            )
 
     if upsert_rows:
-        occ_store.upsert_many(upsert_rows)
+        rows_by_model: dict[str, list[tuple[str, str, int, str, int]]] = {}
+        for model_name, row in upsert_rows:
+            rows_by_model.setdefault(model_name, []).append(row)
+        for model_name, model_rows in rows_by_model.items():
+            occ_store.upsert_many(model_rows, model=model_name)
 
     print(f"Ingested {len(upsert_rows)} rows, skipped {skipped}")
     return len(upsert_rows)

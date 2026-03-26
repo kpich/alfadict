@@ -81,7 +81,9 @@ def test_labeling_pipeline_skips_already_labeled(tmp_path: Path, monkeypatch) ->
 
     labeled_db = tmp_path / "labeled.db"
     occ_store = OccurrenceStore(labeled_db)
-    occ_store.upsert_many([(form, doc_id, byte_offset, sense.id, 2)])
+    occ_store.upsert_many(
+        [(form, doc_id, byte_offset, sense.id, 2)], model="test-model"
+    )
 
     target_path = tmp_path / "target.json"
     target_path.write_text(UpdateTarget(form=form).model_dump_json())

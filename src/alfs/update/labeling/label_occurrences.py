@@ -154,7 +154,7 @@ def run(
         )
 
     if upsert_rows:
-        occ_store.upsert_many(upsert_rows)
+        occ_store.upsert_many(upsert_rows, model=model)
         print(f"Labeled {len(upsert_rows)} occurrences for '{form}' → labeled.db")
     else:
         print(f"No new occurrences to label for '{form}'")
