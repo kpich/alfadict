@@ -119,8 +119,9 @@ def build_system_message(form: str, sense_menu: str) -> str:
         f"Rating: 2=excellent, 1=okay (needs a more refined sense), 0=poor/doesn't "
         f"fit.\n"
         f'If rating is 0, set sense_key to "0".\n'
-        f'synonyms: other words that could substitute for "{form}" in this exact'
-        f" context. Use [] if none apply.\n"
+        f'synonyms: other words that could roughly fit in place of "{form}" here.'
+        f" Doesn't need to be a perfect match — approximate or related words are fine."
+        f" Use [] if nothing fits at all.\n"
         f"\n"
         f'Senses of "{form}":\n'
         f"{sense_menu}"
