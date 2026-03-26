@@ -48,6 +48,34 @@ make clerk-watch # apply queued sense mutations from clerk_queue/
 | `make morph_redirect` | Queue morphological redirect proposals (e.g. plural, past tense) |
 | `make trim_senses` | LLM-identify redundant senses in 50 random multi-sense words → enqueue |
 
+### Groq batch labeling
+
+An alternative to the local-LLM labeling pipeline that uses Groq's batch API — cheaper and faster for large runs.
+
+**1. Prepare the batch file**
+
+```
+make groq-batch-prepare [GROQ_MODEL=llama-3.1-8b-instant]
+```
+
+Writes two files to `../groq_batch/`:
+- `batch_input.jsonl` — upload this to Groq
+- `batch_metadata.jsonl` — sidecar needed for ingest; keep it alongside the output
+
+**2. Submit to Groq and download the result**
+
+Upload `batch_input.jsonl` via the Groq console or their batch API. When the job completes, download the result file and save it as `../groq_batch/batch_output.jsonl`.
+
+**3. Ingest the results**
+
+```
+make groq-batch-ingest
+```
+
+Reads `batch_output.jsonl` + `batch_metadata.jsonl` and upserts labeled occurrences into `labeled.db`.
+
+---
+
 ### Claude Code (CC) mode
 
 When the "CC" toggle is active in the conductor, pipeline tasks write JSON task files to `cc_tasks/pending/` instead of calling a local LLM. You then run CC skills (`/cc-induction`, `/cc-rewrite`, `/cc-trim`, `/cc-morph`) in Claude Code to process them, and apply the results via `make cc_apply`.
