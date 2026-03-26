@@ -16,3 +16,4 @@ class AnnotatedOccurrence(BaseModel):
     byte_offset: int
     sense_key: str
     rating: OccurrenceRating  # validated enum, serializes as int to parquet
+    model: str | None = None

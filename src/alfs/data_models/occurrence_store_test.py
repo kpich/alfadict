@@ -17,7 +17,7 @@ def test_upsert_and_query_form(store: OccurrenceStore) -> None:
         ("run", "doc1", 50, "2", 1),
         ("walk", "doc2", 10, "1", 0),
     ]
-    store.upsert_many(rows)
+    store.upsert_many(rows, model="test-model")
     df = store.query_form("run")
     assert len(df) == 2
     assert set(df["sense_key"].to_list()) == {"1", "2"}
@@ -25,8 +25,8 @@ def test_upsert_and_query_form(store: OccurrenceStore) -> None:
 
 def test_upsert_deduplication(store: OccurrenceStore) -> None:
     """INSERT OR REPLACE: later upsert with same PK wins."""
-    store.upsert_many([("run", "doc1", 0, "1", 1)])
-    store.upsert_many([("run", "doc1", 0, "2", 2)])
+    store.upsert_many([("run", "doc1", 0, "1", 1)], model="model-a")
+    store.upsert_many([("run", "doc1", 0, "2", 2)], model="model-b")
     df = store.query_form("run")
     assert len(df) == 1
     assert df["sense_key"][0] == "2"
@@ -42,6 +42,7 @@ def test_query_form_missing_returns_empty(store: OccurrenceStore) -> None:
         "byte_offset": pl.Int64,
         "sense_key": pl.String,
         "rating": pl.Int64,
+        "model": pl.String,
         "updated_at": pl.String,
     }
 
@@ -51,7 +52,7 @@ def test_to_polars(store: OccurrenceStore) -> None:
         ("cat", "doc1", 0, "1", 2),
         ("dog", "doc2", 5, "1", 1),
     ]
-    store.upsert_many(rows)
+    store.upsert_many(rows, model="test-model")
     df = store.to_polars()
     assert len(df) == 2
     assert set(df["form"].to_list()) == {"cat", "dog"}
@@ -69,7 +70,7 @@ def test_count_by_form(store: OccurrenceStore) -> None:
         ("run", "doc1", 20, "1", 0),  # poor → bad
         ("walk", "doc2", 0, "1", 0),  # poor → bad
     ]
-    store.upsert_many(rows)
+    store.upsert_many(rows, model="test-model")
     df = store.count_by_form().sort("form")
     run_row = df.filter(pl.col("form") == "run").row(0, named=True)
     assert run_row["n_total"] == 3
@@ -93,7 +94,8 @@ def test_delete_by_sense_id_removes_top_level(store: OccurrenceStore) -> None:
         [
             ("run", "doc1", 0, uid_a, 2),
             ("run", "doc1", 10, uid_b, 1),
-        ]
+        ],
+        model="test-model",
     )
     store.delete_by_sense_id("run", uid_a)
     df = store.query_form("run")
@@ -108,7 +110,8 @@ def test_delete_by_sense_id_other_forms_unaffected(store: OccurrenceStore) -> No
         [
             ("run", "doc1", 0, uid, 2),
             ("walk", "doc1", 0, uid, 1),
-        ]
+        ],
+        model="test-model",
     )
     store.delete_by_sense_id("run", uid)
     assert len(store.query_form("run")) == 0

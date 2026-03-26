@@ -314,6 +314,7 @@ def run(
                     "form": form,
                     "doc_id": doc_id,
                     "byte_offset": byte_offset,
+                    "model": model,
                 }
             )
         )
