@@ -6,7 +6,6 @@ from pathlib import Path
 from alfs.cc.apply import run
 from alfs.cc.models import (
     CCInductionOutput,
-    CCInductionTask,
     ContextLabel,
     InductionSense,
 )
@@ -86,21 +85,6 @@ def test_apply_induction_skip_labels(tmp_path: Path):
     store = SenseStore(senses_db)
     store.update("cat", lambda _: Alf(form="cat", senses=[]))
 
-    # Write the task file so apply can get occurrence_refs
-    task = CCInductionTask(
-        id="test-labels",
-        form="cat",
-        contexts=["The cat sat.", "The cat meowed."],
-        existing_defs=[],
-        occurrence_refs=[
-            Occurrence(doc_id="doc1", byte_offset=100),
-            Occurrence(doc_id="doc2", byte_offset=200),
-        ],
-    )
-    (cc_dir / "pending" / "induction" / "test-labels.json").write_text(
-        task.model_dump_json()
-    )
-
     output = CCInductionOutput(
         id="test-labels",
         form="cat",
@@ -111,6 +95,10 @@ def test_apply_induction_skip_labels(tmp_path: Path):
             ContextLabel(context_idx=0, sense_idx=1),  # sense assignment
             ContextLabel(context_idx=1, sense_idx=None),  # skip
         ],
+        occurrence_refs=[
+            Occurrence(doc_id="doc1", byte_offset=100),
+            Occurrence(doc_id="doc2", byte_offset=200),
+        ],
     )
     (cc_dir / "done" / "induction" / "test-labels.json").write_text(
         output.model_dump_json()
@@ -118,8 +106,6 @@ def test_apply_induction_skip_labels(tmp_path: Path):
 
     run(cc_dir, senses_db, queue_dir, labeled_db=str(labeled_db))
 
-    # Task file should be deleted after processing
-    assert not (cc_dir / "pending" / "induction" / "test-labels.json").exists()
     # Check labeled occurrences written
     occ_store = OccurrenceStore(labeled_db)
     df = occ_store.query_form("cat")

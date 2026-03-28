@@ -51,6 +51,7 @@ You are a lexicographer performing sense induction for English words. Process al
        {"context_idx": 1, "sense_idx": null},
        ...
      ],
+     "occurrence_refs": [<copy verbatim from the task file's occurrence_refs array>],
      "add_to_blocklist": false,
      "blocklist_reason": null
    }
@@ -64,6 +65,7 @@ You are a lexicographer performing sense induction for English words. Process al
      "form": "<same form from task>",
      "new_senses": [],
      "context_labels": [],
+     "occurrence_refs": [],
      "add_to_blocklist": true,
      "blocklist_reason": "tokenization artifact"
    }

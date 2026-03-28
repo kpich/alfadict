@@ -49,6 +49,9 @@ class CCInductionOutput(BaseModel):
     form: str
     new_senses: list[InductionSense] = []
     context_labels: list[ContextLabel] = []
+    occurrence_refs: list[
+        Occurrence
+    ] = []  # parallel to contexts; copied from task file
     add_to_blocklist: bool = False
     blocklist_reason: str | None = None
 

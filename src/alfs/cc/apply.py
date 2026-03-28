@@ -38,7 +38,6 @@ def _apply_induction(
     queue_dir: Path,
     occ_store: OccurrenceStore | None,
     blocklist: Blocklist | None,
-    pending_induction_dir: Path,
 ) -> bool:
     # Handle blocklist decision
     if output.add_to_blocklist:
@@ -50,63 +49,49 @@ def _apply_induction(
             print(f"  deleted labeled occurrences for {output.form!r}")
         return True
 
-    # Apply context labels (requires the original task file for occurrence_refs)
+    # Apply context labels
     if output.context_labels and occ_store is not None:
-        task_path = pending_induction_dir / f"{output.id}.json"
-        if task_path.exists():
-            try:
-                from alfs.cc.models import CCInductionTask
-
-                task_adapter: TypeAdapter[CCInductionTask] = TypeAdapter(
-                    CCInductionTask
-                )
-                task = task_adapter.validate_json(task_path.read_bytes())
-                occurrence_refs: list[Occurrence] = task.occurrence_refs
-                rows = []
-                for label in output.context_labels:
-                    idx = label.context_idx
-                    if idx < 0 or idx >= len(occurrence_refs):
-                        continue
-                    occ = occurrence_refs[idx]
-                    if label.sense_idx is None:
-                        # _skip label
-                        rows.append(
-                            (
-                                output.form,
-                                occ.doc_id,
-                                occ.byte_offset,
-                                _SKIP_SENSE_KEY,
-                                0,
-                                None,
-                            )
-                        )
-                    else:
-                        # Sense assignment (1-indexed into new_senses)
-                        sense_key = str(label.sense_idx)
-                        rows.append(
-                            (
-                                output.form,
-                                occ.doc_id,
-                                occ.byte_offset,
-                                sense_key,
-                                2,
-                                None,
-                            )
-                        )
-                if rows:
-                    occ_store.upsert_many(rows, "claude-code")
-                    print(f"  labeled {len(rows)} occurrence(s) for {output.form!r}")
-                task_path.unlink()
-            except Exception as exc:
-                print(
-                    f"  warning: could not apply context labels "
-                    f"for {output.form!r}: {exc}"
-                )
-        else:
+        occurrence_refs: list[Occurrence] = output.occurrence_refs
+        if not occurrence_refs:
             print(
-                f"  warning: task file not found for {output.form!r} "
-                f"(id={output.id}), skipping context labels"
+                f"  warning: no occurrence_refs in output for {output.form!r}, "
+                f"skipping context labels"
             )
+        else:
+            rows = []
+            for label in output.context_labels:
+                idx = label.context_idx
+                if idx < 0 or idx >= len(occurrence_refs):
+                    continue
+                occ = occurrence_refs[idx]
+                if label.sense_idx is None:
+                    # _skip label
+                    rows.append(
+                        (
+                            output.form,
+                            occ.doc_id,
+                            occ.byte_offset,
+                            _SKIP_SENSE_KEY,
+                            0,
+                            None,
+                        )
+                    )
+                else:
+                    # Sense assignment (1-indexed into new_senses)
+                    sense_key = str(label.sense_idx)
+                    rows.append(
+                        (
+                            output.form,
+                            occ.doc_id,
+                            occ.byte_offset,
+                            sense_key,
+                            2,
+                            None,
+                        )
+                    )
+            if rows:
+                occ_store.upsert_many(rows, "claude-code")
+                print(f"  labeled {len(rows)} occurrence(s) for {output.form!r}")
 
     # Enqueue new senses
     entry = sense_store.read(output.form)
@@ -149,7 +134,6 @@ def run(
     blocklist_file: str | Path | None = None,
 ) -> None:
     done_dir = Path(cc_tasks_dir) / "done"
-    pending_induction_dir = Path(cc_tasks_dir) / "pending" / "induction"
     if not done_dir.exists():
         print("No done/ directory found.")
         return
@@ -185,7 +169,6 @@ def run(
                 queue_path,
                 occ_store,
                 blocklist,
-                pending_induction_dir,
             )
         else:
             print(f"  unknown output type in {f.name}")
