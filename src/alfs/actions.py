@@ -11,9 +11,6 @@ class Action:
     label: str
     cmd: list[str]
     description: str = ""
-    cc_ready: bool = (
-        False  # True if this action works in CC mode (has CC branch or no LLM)
-    )
 
 
 ACTIONS: list[Action] = [
@@ -22,42 +19,30 @@ ACTIONS: list[Action] = [
         "Enqueue New Forms",
         ["make", "enqueue_new_forms"],
         description="Add top-N unseen corpus forms to the induction queue",
-        cc_ready=True,
     ),
     Action(
         "enqueue-poor-coverage",
         "Enqueue Poor Coverage",
         ["make", "enqueue_poor_coverage"],
         description="Add forms with poor labeled coverage to the induction queue",
-        cc_ready=True,
     ),
     Action(
         "induce-senses",
         "Induce Senses",
         ["make", "induce_senses"],
         description="Dequeue forms and run local LLM sense induction",
-        cc_ready=False,
-    ),
-    Action(
-        "cc-induce-senses",
-        "CC Induce Senses",
-        ["make", "cc_induce_senses"],
-        description="Dequeue forms and write CC induction task files",
-        cc_ready=True,
     ),
     Action(
         "clerk",
         "Clerk",
         ["make", "clerk"],
         description="Process queued sense mutations",
-        cc_ready=True,
     ),
     Action(
         "cc_apply",
         "CC Apply",
         ["make", "cc_apply"],
         description="Apply CC skill outputs as clerk requests",
-        cc_ready=True,
     ),
 ]
 

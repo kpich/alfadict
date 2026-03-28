@@ -4,15 +4,12 @@ import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-import os
 from pathlib import Path
 import subprocess
 import threading
 import uuid
 
 from alfs.actions import ACTIONS_BY_NAME
-
-CC_TASKS_DIR_ENV = "CC_TASKS_DIR"
 
 
 class TaskStatus(str, Enum):
@@ -36,7 +33,6 @@ class Task:
     log_lines: list[str] = field(default_factory=list)
     returncode: int | None = None
     log_file: Path | None = None
-    use_cc: bool = False
 
 
 class QueueManager:
@@ -56,7 +52,7 @@ class QueueManager:
         t = threading.Thread(target=self._dispatch_loop, daemon=True)
         t.start()
 
-    def enqueue(self, task_type: str, use_cc: bool = False) -> Task:
+    def enqueue(self, task_type: str) -> Task:
         if task_type not in ACTIONS_BY_NAME:
             raise ValueError(f"Unsupported task type: {task_type!r}")
         task = Task(
@@ -64,7 +60,6 @@ class QueueManager:
             type=task_type,
             status=TaskStatus.pending,
             created_at=datetime.now(UTC),
-            use_cc=use_cc,
         )
         with self._lock:
             self.tasks.append(task)
@@ -128,20 +123,12 @@ class QueueManager:
                 with self._lock:
                     task.log_file = log_path
 
-            env = None
-            if task.use_cc:
-                cc_dir = os.environ.get(CC_TASKS_DIR_ENV, "../cc_tasks")
-                env = {
-                    **os.environ,
-                    CC_TASKS_DIR_ENV: cc_dir,
-                }
             proc = subprocess.Popen(
                 cmd,
                 cwd=self.project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                env=env,
             )
             assert proc.stdout is not None
             with contextlib.ExitStack() as stack:

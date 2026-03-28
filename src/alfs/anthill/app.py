@@ -24,15 +24,12 @@ def _task_to_dict(task: Task, est_duration: float | None = None) -> dict:
         "log_count": len(task.log_lines),
         "est_duration": est_duration,
         "log_file": str(task.log_file) if task.log_file else None,
-        "use_cc": task.use_cc,
     }
 
 
 @app.get("/api/actions")
 def list_actions():
-    return jsonify(
-        [{"name": a.name, "label": a.label, "cc_ready": a.cc_ready} for a in ACTIONS]
-    )
+    return jsonify([{"name": a.name, "label": a.label} for a in ACTIONS])
 
 
 @app.get("/")
@@ -53,9 +50,8 @@ def create_task():
     assert _queue is not None
     body = request.get_json(silent=True) or {}
     task_type = body.get("type", "")
-    use_cc = bool(body.get("cc", False))
     try:
-        task = _queue.enqueue(task_type, use_cc=use_cc)
+        task = _queue.enqueue(task_type)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify(_task_to_dict(task, _queue.average_duration(task.type))), 201
