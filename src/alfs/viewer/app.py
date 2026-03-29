@@ -95,12 +95,19 @@ def word(form: str):
     by_year_kde = entry.get("by_year_kde", {})
     percentile = entry["percentile"]
 
-    has_chart = bool(by_year_kde)
+    # Detect parent (morph-base) form and load its entry
+    base_forms = {s["morph_base"] for s in senses if s.get("morph_base")}
+    parent_form = base_forms.pop() if len(base_forms) == 1 else None
+    parent_entry = data["entries"].get(parent_form) if parent_form else None
+    parent_senses = parent_entry["senses"] if parent_entry else None
+
+    has_chart = bool(by_year_kde) or bool(
+        parent_entry and parent_entry.get("by_year_kde")
+    )
     chart_data = {}
     if has_chart:
-        sense_keys = [s["key"] for s in senses]
         traces = []
-        for sk in sense_keys:
+        for sk in [s["key"] for s in senses]:
             pts = by_year_kde.get(sk)
             if pts:
                 traces.append(
@@ -112,7 +119,21 @@ def word(form: str):
                         "y": [p[1] for p in pts],
                     }
                 )
-
+        if parent_entry:
+            parent_kde = parent_entry.get("by_year_kde", {})
+            for sk in [s["key"] for s in parent_entry["senses"]]:
+                pts = parent_kde.get(sk)
+                if pts:
+                    traces.append(
+                        {
+                            "type": "scatter",
+                            "mode": "lines",
+                            "name": f"{parent_form}:{sk}",
+                            "line": {"dash": "dot"},
+                            "x": [p[0] for p in pts],
+                            "y": [p[1] for p in pts],
+                        }
+                    )
         chart_data = {
             "traces": traces,
             "layout": {
@@ -125,11 +146,21 @@ def word(form: str):
         }
 
     senses_bar = entry.get("senses_bar", [])
-    has_bar_chart = len(senses_bar) >= 2
+    all_bar = list(senses_bar)
+    if parent_entry:
+        for sb in parent_entry.get("senses_bar", []):
+            all_bar.append(
+                {
+                    "key": f"{parent_form}:{sb['key']}",
+                    "pos": sb["pos"],
+                    "proportion": sb["proportion"],
+                }
+            )
+    has_bar_chart = len(all_bar) >= 2
     bar_chart_data: dict = {}
     if has_bar_chart:
         bar_traces = []
-        for sb in senses_bar:
+        for sb in all_bar:
             bar_traces.append(
                 {
                     "type": "bar",
@@ -154,6 +185,8 @@ def word(form: str):
         "word.html",
         form=form,
         senses=senses,
+        parent_form=parent_form,
+        parent_senses=parent_senses,
         has_chart=has_chart,
         chart_data=json.dumps(chart_data),
         has_bar_chart=has_bar_chart,

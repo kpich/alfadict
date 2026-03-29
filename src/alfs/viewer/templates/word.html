@@ -29,6 +29,19 @@
 {% endfor %}
 </ol>
 
+{% if parent_senses %}
+<div class="card mt-3 border-secondary">
+  <div class="card-body py-2">
+    <h6 class="card-title mb-2">Base form: <a href="/word/{{ parent_form }}">{{ parent_form }}</a></h6>
+    <ol class="mb-0">
+    {% for sense in parent_senses %}
+      <li>{% if sense.pos %}<em class="text-muted small">{{ sense.pos }}</em> {% endif %}{{ sense.definition }}</li>
+    {% endfor %}
+    </ol>
+  </div>
+</div>
+{% endif %}
+
 {% if has_chart or has_bar_chart %}
 <h2 class="mt-4">{% if has_chart %}Usage by Year{% else %}Sense Distribution{% endif %}</h2>
 <div class="d-flex gap-4 align-items-start">
