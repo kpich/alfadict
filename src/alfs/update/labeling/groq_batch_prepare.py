@@ -221,12 +221,42 @@ def run(
         if ec > 0:
             eff_senses[form] = ec
 
+    # Group redirect forms with their canonical so they share allocation budget.
+    # redirect_map: redirect_form -> canonical_form
+    redirect_map: dict[str, str] = {
+        form: alf.redirect
+        for form, alf in all_entries.items()
+        if alf.redirect is not None
+    }
+    # canonical_group: canonical_form -> all forms (canonical + its redirects)
+    canonical_group: dict[str, list[str]] = defaultdict(list)
+    for form in eff_senses:
+        canon = redirect_map.get(form, form)
+        canonical_group[canon].append(form)
+
+    # Only canonical forms get their own allocation entry.
+    # Fold redirect corpus/labeled counts into the canonical so the budget
+    # is shared rather than doubled.
+    eff_senses_canon = {f: eff_senses[f] for f in eff_senses if f not in redirect_map}
+    agg_corpus = dict(corpus_counts)
+    agg_existing = dict(existing_labeled)
+    agg_good_labeled = dict(good_labeled)
+    for rform, canon in redirect_map.items():
+        if canon in eff_senses_canon:
+            agg_corpus[canon] = agg_corpus.get(canon, 0) + corpus_counts.get(rform, 0)
+            agg_existing[canon] = agg_existing.get(canon, 0) + existing_labeled.get(
+                rform, 0
+            )
+            agg_good_labeled[canon] = agg_good_labeled.get(canon, 0) + good_labeled.get(
+                rform, 0
+            )
+
     # Allocate budget
     allocation = allocate_instances(
-        effective_senses=eff_senses,
-        existing_labeled=existing_labeled,
-        good_labeled=good_labeled,
-        corpus_counts=corpus_counts,
+        effective_senses=eff_senses_canon,
+        existing_labeled=agg_existing,
+        good_labeled=agg_good_labeled,
+        corpus_counts=agg_corpus,
         budget=n,
         min_count=min_count,
     )
@@ -265,33 +295,48 @@ def run(
         occ_path = Path(seg_data_dir) / prefix_key / "occurrences.parquet"
         if not occ_path.exists():
             continue
-        df = pl.read_parquet(str(occ_path)).filter(pl.col("form").is_in(forms))
-        for form in forms:
-            k = allocation[form]
+        # Load occurrences for all forms in every canonical group for this prefix
+        all_prefix_forms = [
+            f for canon in forms for f in canonical_group.get(canon, [canon])
+        ]
+        df = pl.read_parquet(str(occ_path)).filter(
+            pl.col("form").is_in(all_prefix_forms)
+        )
+        for canon in forms:
+            k = allocation[canon]
             if k <= 0:
                 continue
-            form_df = df.filter(pl.col("form") == form)
-            form_good = good_pairs.get(form, set())
-            form_stale = stale_pairs.get(form, [])
-            form_stale_set = set(form_stale)
-            fresh_candidates: list[tuple[str, int]] = [
-                (str(row["doc_id"]), int(row["byte_offset"]))
-                for row in form_df.select(["doc_id", "byte_offset"]).iter_rows(
+            group_forms = canonical_group.get(canon, [canon])
+            group_df = df.filter(pl.col("form").is_in(group_forms))
+
+            # Stale pairs pooled across all forms in the group
+            group_stale: list[tuple[str, str, int]] = [
+                (f, doc_id, byte_offset)
+                for f in group_forms
+                for doc_id, byte_offset in stale_pairs.get(f, [])
+            ]
+            group_stale_set: set[tuple[str, str, int]] = set(group_stale)
+
+            fresh_candidates: list[tuple[str, str, int]] = [
+                (str(row["form"]), str(row["doc_id"]), int(row["byte_offset"]))
+                for row in group_df.select(["form", "doc_id", "byte_offset"]).iter_rows(
                     named=True
                 )
-                if (str(row["doc_id"]), int(row["byte_offset"])) not in form_good
-                and (str(row["doc_id"]), int(row["byte_offset"])) not in form_stale_set
+                if (str(row["doc_id"]), int(row["byte_offset"]))
+                not in good_pairs.get(str(row["form"]), set())
+                and (str(row["form"]), str(row["doc_id"]), int(row["byte_offset"]))
+                not in group_stale_set
             ]
 
-            k_stale = min(int(k * stale_fraction), len(form_stale))
+            k_stale = min(int(k * stale_fraction), len(group_stale))
             k_fresh = k - k_stale
 
-            if form_stale and k_stale > 0:
-                chosen_stale = rng.choice(len(form_stale), size=k_stale, replace=False)
+            if group_stale and k_stale > 0:
+                chosen_stale = rng.choice(len(group_stale), size=k_stale, replace=False)
                 for idx in chosen_stale:
-                    doc_id, byte_offset = form_stale[int(idx)]
+                    f, doc_id, byte_offset = group_stale[int(idx)]
                     sampled.append(
-                        {"form": form, "doc_id": doc_id, "byte_offset": byte_offset}
+                        {"form": f, "doc_id": doc_id, "byte_offset": byte_offset}
                     )
 
             if fresh_candidates and k_fresh > 0:
@@ -301,9 +346,9 @@ def run(
                     replace=False,
                 )
                 for idx in chosen_fresh:
-                    doc_id, byte_offset = fresh_candidates[int(idx)]
+                    f, doc_id, byte_offset = fresh_candidates[int(idx)]
                     sampled.append(
-                        {"form": form, "doc_id": doc_id, "byte_offset": byte_offset}
+                        {"form": f, "doc_id": doc_id, "byte_offset": byte_offset}
                     )
 
     print(f"Sampled {len(sampled)} instances")
