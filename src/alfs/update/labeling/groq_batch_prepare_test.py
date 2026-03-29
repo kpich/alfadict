@@ -3,10 +3,12 @@
 import polars as pl
 
 from alfs.data_models.alf import Alf, Sense
+from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.update.labeling.groq_batch_prepare import (
     allocate_instances,
     effective_sense_count,
+    run,
     split_labeled_pairs,
 )
 
@@ -221,6 +223,67 @@ def test_split_labeled_pairs_null_labeled_ts_goes_to_good() -> None:
     good, stale = split_labeled_pairs(df, max_sense_ts)
     assert ("doc1", 100) in good["run"]
     assert len(stale.get("run", [])) == 0
+
+
+def test_run_redirect_forms_share_allocation(tmp_path) -> None:
+    """Redirect forms pool their corpus counts instead of doubling the budget.
+
+    With only "dog" (40 occurrences), run() should sample the same total as
+    when "dog" (20) + "DOG"→"dog" (20) together are present.
+    """
+    senses = [
+        Sense(definition="a domesticated canine"),
+        Sense(definition="informal: ugly person"),
+    ]
+    canonical = Alf(form="dog", senses=senses)
+    redirect = Alf(form="DOG", senses=[], redirect="dog")
+
+    store = SenseStore(tmp_path / "senses.db")
+    store.write(canonical)
+    store.write(redirect)
+
+    OccurrenceStore(tmp_path / "labeled.db")
+
+    # 20 "dog" + 20 "DOG" occurrences across 40 docs
+    n_each = 20
+    rows_dog = [
+        {"form": "dog", "doc_id": f"doc{i}", "byte_offset": 0} for i in range(n_each)
+    ]
+    rows_DOG = [
+        {"form": "DOG", "doc_id": f"doc{i+n_each}", "byte_offset": 0}
+        for i in range(n_each)
+    ]
+    occ_df = pl.DataFrame(rows_dog + rows_DOG)
+    prefix_dir = tmp_path / "by_prefix" / "d"
+    prefix_dir.mkdir(parents=True)
+    occ_df.write_parquet(str(prefix_dir / "occurrences.parquet"))
+
+    # docs.parquet with enough text for context extraction
+    all_doc_ids = [f"doc{i}" for i in range(2 * n_each)]
+    docs_df = pl.DataFrame(
+        {"doc_id": all_doc_ids, "text": ["the dog ran away"] * len(all_doc_ids)}
+    )
+    docs_path = tmp_path / "docs.parquet"
+    docs_df.write_parquet(str(docs_path))
+
+    out_dir = tmp_path / "out"
+    budget = 10
+
+    pairs = run(
+        senses_db=tmp_path / "senses.db",
+        labeled_db=tmp_path / "labeled.db",
+        seg_data_dir=tmp_path / "by_prefix",
+        docs=docs_path,
+        output_dir=out_dir,
+        n=budget,
+        seed=0,
+    )
+    assert len(pairs) == 1
+    batch_path, _ = pairs[0]
+    total_with_redirect = sum(1 for _ in batch_path.read_text().splitlines() if _)
+
+    # Should be close to budget (≤ budget + 1 for int truncation), not doubled
+    assert total_with_redirect <= budget + 1
 
 
 def test_split_labeled_pairs_mixed() -> None:
