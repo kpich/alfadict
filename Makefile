@@ -26,7 +26,7 @@ BLOCKLIST_FILE     ?= ../alfs_data/blocklist.yaml
 ENQUEUE_TOP_N      ?= 500
 ENQUEUE_MIN_COUNT  ?= 5
 ENQUEUE_N_OCC_REFS ?= 3
-CC_QC_N            ?= 20
+CC_QC_N            ?= 5
 
 download:
 	uv run --no-sync python -m alfs.etl.download \
