@@ -14,5 +14,5 @@
 - `/cc-induction` — Induce new word senses from CC task files in `../cc_tasks/pending/`
 - `/cc-rewrite` — Rewrite sense definitions from CC task files in `../cc_tasks/pending/`
 - `/cc-trim` — Trim redundant senses from CC task files in `../cc_tasks/pending/`
-- `/cc-morphrel-redirect-block` — Per-form: add morph_rel links, redirect to canonical form, or delete+blocklist garbage forms
+- `/cc-qc` — Per-form quality control: morph_rel links, sense deletion/rewriting/POS correction, spelling variant marking, case normalization, entry deletion+blocklist
 - `/cc-spelling-variant` — Confirm spelling variant pairs from CC task files in `../cc_tasks/pending/`

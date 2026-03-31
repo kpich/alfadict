@@ -7,10 +7,15 @@ from alfs.cc.apply import run
 from alfs.cc.models import (
     CCInductionOutput,
     CCMorphRelBlockOutput,
+    CCQCOutput,
     ContextLabel,
+    DeletedSenseEntry,
     InductionSense,
+    MorphRelEntry,
+    PosCorrection,
+    SenseRewrite,
 )
-from alfs.data_models.alf import Alf
+from alfs.data_models.alf import Alf, Sense
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
@@ -164,3 +169,304 @@ def test_apply_empty_done_dir(tmp_path: Path):
     cc_dir, senses_db, queue_dir = _setup(tmp_path)
     # Should not error with empty done/
     run(cc_dir, senses_db, queue_dir)
+
+
+def _setup_qc(tmp_path: Path) -> tuple[Path, Path, Path]:
+    cc_dir = tmp_path / "cc_tasks"
+    (cc_dir / "pending" / "qc").mkdir(parents=True)
+    (cc_dir / "done" / "qc").mkdir(parents=True)
+    senses_db = tmp_path / "senses.db"
+    queue_dir = tmp_path / "queue"
+    queue_dir.mkdir()
+    return cc_dir, senses_db, queue_dir
+
+
+def test_apply_qc_sense_rewrite(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "cat",
+        lambda _: Alf(
+            form="cat",
+            senses=[
+                Sense(id="s0", definition="a domestic feline"),
+                Sense(id="s1", definition="cool person lol"),
+            ],
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-rw",
+        form="cat",
+        sense_rewrites=[
+            SenseRewrite(sense_idx=1, definition="a cool or hip person (slang)")
+        ],
+    )
+    (cc_dir / "done" / "qc" / "test-rw.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-rw.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "rewrite"
+    assert req["form"] == "cat"
+    assert req["after"]["definition"] == "a cool or hip person (slang)"
+
+
+def test_apply_qc_pos_correction(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "run",
+        lambda _: Alf(
+            form="run",
+            senses=[Sense(id="s0", definition="to move on foot at speed")],
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-pos",
+        form="run",
+        pos_corrections=[PosCorrection(sense_idx=0, pos="verb")],
+    )
+    (cc_dir / "done" / "qc" / "test-pos.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-pos.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "update_pos"
+    assert req["form"] == "run"
+    assert req["after"]["pos"] == "verb"
+
+
+def test_apply_qc_deleted_senses(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "dog",
+        lambda _: Alf(
+            form="dog",
+            senses=[
+                Sense(id="s0", definition="a domestic canine"),
+                Sense(id="s1", definition="a canine animal"),  # redundant
+                Sense(id="s2", definition="to follow persistently"),
+            ],
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-del",
+        form="dog",
+        deleted_senses=[
+            DeletedSenseEntry(sense_idx=1, reason="redundant with sense 0")
+        ],
+    )
+    (cc_dir / "done" / "qc" / "test-del.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-del.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "prune"
+    assert req["form"] == "dog"
+    assert req["removed_ids"] == ["s1"]
+    assert len(req["after"]) == 2
+
+
+def test_apply_qc_multiple_deleted_senses(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "dog",
+        lambda _: Alf(
+            form="dog",
+            senses=[
+                Sense(id="s0", definition="a domestic canine"),
+                Sense(id="s1", definition="a canine animal"),
+                Sense(id="s2", definition="canine"),
+            ],
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-multidel",
+        form="dog",
+        deleted_senses=[
+            DeletedSenseEntry(sense_idx=1, reason="redundant"),
+            DeletedSenseEntry(sense_idx=2, reason="too terse"),
+        ],
+    )
+    (cc_dir / "done" / "qc" / "test-multidel.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    pending = list((queue_dir / "pending").glob("*.json"))
+    # Multiple deletions produce a single prune request
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "prune"
+    assert set(req["removed_ids"]) == {"s1", "s2"}
+    assert len(req["after"]) == 1
+
+
+def test_apply_qc_delete_entry(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+    blocklist_file = tmp_path / "blocklist.yaml"
+
+    output = CCQCOutput(
+        id="test-del-entry",
+        form="5*!",
+        delete_entry=True,
+        delete_entry_reason="tokenization artifact",
+    )
+    (cc_dir / "done" / "qc" / "test-del-entry.json").write_text(
+        output.model_dump_json()
+    )
+
+    run(cc_dir, senses_db, queue_dir, blocklist_file=str(blocklist_file))
+
+    assert not (cc_dir / "done" / "qc" / "test-del-entry.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "delete_entry"
+    assert req["form"] == "5*!"
+    assert blocklist_file.exists()
+    assert "5*!" in blocklist_file.read_text()
+
+
+def test_apply_qc_normalize_case(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "aaron",
+        lambda _: Alf(form="aaron", senses=[Sense(id="s0", definition="a given name")]),
+    )
+
+    output = CCQCOutput(id="test-nc", form="aaron", normalize_case="Aaron")
+    (cc_dir / "done" / "qc" / "test-nc.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-nc.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    types = {json.loads(f.read_text())["type"] for f in pending}
+    assert "add_senses" in types
+    assert "delete_entry" in types
+
+
+def test_apply_qc_spelling_variant_of(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "colour",
+        lambda _: Alf(
+            form="colour", senses=[Sense(id="s0", definition="a visual property")]
+        ),
+    )
+
+    output = CCQCOutput(id="test-sv", form="colour", spelling_variant_of="color")
+    (cc_dir / "done" / "qc" / "test-sv.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-sv.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "set_spelling_variant"
+    assert req["form"] == "colour"
+    assert req["preferred_form"] == "color"
+
+
+def test_apply_qc_morph_rels(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "dog", lambda _: Alf(form="dog", senses=[Sense(id="s0", definition="a canine")])
+    )
+    store.update(
+        "dogs",
+        lambda _: Alf(
+            form="dogs", senses=[Sense(id="s1", definition="multiple canines")]
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-mr",
+        form="dogs",
+        morph_rels=[
+            MorphRelEntry(
+                sense_idx=0,
+                morph_base="dog",
+                morph_relation="plural",
+                proposed_definition="plural of dog (n.)",
+                promote_to_parent=False,
+            )
+        ],
+    )
+    (cc_dir / "done" / "qc" / "test-mr.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-mr.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    assert len(pending) == 1
+    req = json.loads(pending[0].read_text())
+    assert req["type"] == "morph_redirect"
+    assert req["form"] == "dogs"
+
+
+def test_apply_qc_combined_rewrite_and_delete_senses(tmp_path: Path):
+    cc_dir, senses_db, queue_dir = _setup_qc(tmp_path)
+
+    store = SenseStore(senses_db)
+    store.update(
+        "bat",
+        lambda _: Alf(
+            form="bat",
+            senses=[
+                Sense(id="s0", definition="a stick used for hitting"),
+                Sense(id="s1", definition="flying mammal lol"),
+                Sense(id="s2", definition="cricket implement"),  # redundant with s0
+            ],
+        ),
+    )
+
+    output = CCQCOutput(
+        id="test-combo",
+        form="bat",
+        sense_rewrites=[
+            SenseRewrite(
+                sense_idx=1,
+                definition="a nocturnal flying mammal of the order Chiroptera",
+            )
+        ],
+        deleted_senses=[
+            DeletedSenseEntry(sense_idx=2, reason="redundant with sense 0")
+        ],
+    )
+    (cc_dir / "done" / "qc" / "test-combo.json").write_text(output.model_dump_json())
+
+    run(cc_dir, senses_db, queue_dir)
+
+    assert not (cc_dir / "done" / "qc" / "test-combo.json").exists()
+    pending = list((queue_dir / "pending").glob("*.json"))
+    types = [json.loads(f.read_text())["type"] for f in pending]
+    assert "rewrite" in types
+    assert "prune" in types
+    assert len(pending) == 2
