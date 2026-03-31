@@ -115,7 +115,9 @@ def _load_contexts(
     if not occ_path.exists():
         return [], []
 
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
+    df = pl.read_parquet(str(occ_path)).filter(
+        pl.col("form").str.to_lowercase() == form.lower()
+    )
     all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
 
     if pinned_occurrences:
@@ -414,7 +416,9 @@ def run(
         Path(output).write_text(alf.model_dump_json())
         print(f"No occurrences parquet for '{form}' ({occ_path}); skipping.")
         return
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
+    df = pl.read_parquet(str(occ_path)).filter(
+        pl.col("form").str.to_lowercase() == form.lower()
+    )
     all_occurrences = list(df.select(["doc_id", "byte_offset"]).iter_rows(named=True))
 
     well_labeled: set[tuple[str, int]] = set()

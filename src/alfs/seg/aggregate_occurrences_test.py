@@ -34,6 +34,16 @@ def test_aggregate_merge_true_preserves_existing_rows(tmp_path: Path) -> None:
     assert len(result) == 2
 
 
+def test_aggregate_preserves_original_case(tmp_path: Path) -> None:
+    df = _make_occ_df([("Aaron", "doc1", 0), ("aaron", "doc2", 5), ("DOGS", "doc3", 0)])
+    aggregate(df, tmp_path)
+    result = pl.read_parquet(tmp_path / "a" / "occurrences.parquet")
+    forms = set(result["form"].to_list())
+    assert forms == {"Aaron", "aaron"}
+    result_d = pl.read_parquet(tmp_path / "d" / "occurrences.parquet")
+    assert result_d["form"].to_list() == ["DOGS"]
+
+
 def test_aggregate_merge_false_overwrites(tmp_path: Path) -> None:
     existing = _make_occ_df([("ant", "doc1", 0)])
     aggregate(existing, tmp_path)

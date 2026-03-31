@@ -185,7 +185,14 @@ def run(
     if not parquet_files:
         raise FileNotFoundError(f"No occurrences.parquet files found in {seg_data_dir}")
     corpus_total: pl.DataFrame = (
-        pl.concat([pl.scan_parquet(str(f)).select("form") for f in parquet_files])
+        pl.concat(
+            [
+                pl.scan_parquet(str(f)).select(
+                    pl.col("form").str.to_lowercase().alias("form")
+                )
+                for f in parquet_files
+            ]
+        )
         .group_by("form")
         .agg(pl.len().alias("total"))
         .collect()
@@ -209,15 +216,13 @@ def run(
         existing_labeled[f] = row["n_total"]
         good_labeled[f] = row["n_total"] - row["n_bad"]
 
-    # Compute effective sense counts per form (case variants share a menu, so we
-    # count each canonical entry form independently — the budget covers its full
-    # case-variant occurrence pool via the form.lower() parquet lookup).
+    # Compute effective sense counts per form (case variants share an occurrence
+    # pool via case-insensitive lookup, so deduplicate to one representative per
+    # lowercase cluster to avoid sampling the same pool twice).
     all_entries = sense_store.all_entries()
     eff_senses: dict[str, int] = {}
     seen_lower: set[str] = set()
     for form, alf in all_entries.items():
-        # Only enqueue one representative per lowercase cluster to avoid
-        # sampling the same occurrence pool twice.
         if form.lower() in seen_lower:
             continue
         seen_lower.add(form.lower())
@@ -275,15 +280,15 @@ def run(
         occ_path = Path(seg_data_dir) / prefix_key / "occurrences.parquet"
         if not occ_path.exists():
             continue
-        # Parquets store lowercase forms; look up by form.lower()
         lookup_forms = list({f.lower() for f in forms})
-        df = pl.read_parquet(str(occ_path)).filter(pl.col("form").is_in(lookup_forms))
+        df = pl.read_parquet(str(occ_path)).filter(
+            pl.col("form").str.to_lowercase().is_in(lookup_forms)
+        )
         for form in forms:
             k = allocation[form]
             if k <= 0:
                 continue
-            lookup_form = form.lower()
-            form_df = df.filter(pl.col("form") == lookup_form)
+            form_df = df.filter(pl.col("form").str.to_lowercase() == form.lower())
 
             # Stale pairs for this form (labeled.db stores under canonical entry form)
             form_stale: list[tuple[str, int]] = stale_pairs.get(form, [])
