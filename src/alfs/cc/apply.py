@@ -18,12 +18,21 @@ import uuid
 
 from pydantic import TypeAdapter
 
-from alfs.cc.models import CCInductionOutput, CCMorphRelBlockOutput, CCOutput
+from alfs.cc.models import (
+    CCInductionOutput,
+    CCMorphRelBlockOutput,
+    CCOutput,
+    CCQCOutput,
+)
 from alfs.clerk.queue import enqueue
 from alfs.clerk.request import (
     AddSensesRequest,
     DeleteEntryRequest,
     MorphRedirectRequest,
+    PruneRequest,
+    RewriteRequest,
+    SetSpellingVariantRequest,
+    UpdatePosRequest,
 )
 from alfs.data_models.alf import Sense
 from alfs.data_models.blocklist import Blocklist
@@ -242,6 +251,222 @@ def _apply_morphrel_block(
     return True
 
 
+def _apply_qc(
+    output: CCQCOutput,
+    sense_store: SenseStore,
+    queue_dir: Path,
+    occ_store: OccurrenceStore | None,
+    blocklist: Blocklist | None,
+) -> bool:
+    form = output.form
+
+    if output.delete_entry:
+        reason = output.delete_entry_reason or "deleted by cc-qc"
+        if blocklist is not None:
+            blocklist.add(form, reason)
+            print(f"  added {form!r} to blocklist: {reason}")
+        if occ_store is not None:
+            occ_store.delete_by_form(form)
+            print(f"  deleted labeled occurrences for {form!r}")
+        enqueue(
+            DeleteEntryRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                reason=reason,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued delete for {form!r}")
+        return True
+
+    if output.normalize_case:
+        canonical = output.normalize_case
+        reason = f"case variant of {canonical}"
+        if occ_store is not None:
+            occ_store.delete_by_form(form)
+            print(f"  deleted labeled occurrences for {form!r}")
+        existing_alf = sense_store.read(form)
+        if sense_store.read(canonical) is None and existing_alf is not None:
+            enqueue(
+                AddSensesRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=canonical,
+                    new_senses=list(existing_alf.senses),
+                ),
+                queue_dir,
+            )
+            print(f"  queued migrate senses from {form!r} to {canonical!r}")
+        else:
+            print(f"  {canonical!r} already exists; dropping {form!r}")
+        enqueue(
+            DeleteEntryRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                reason=reason,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued delete for {form!r}")
+        return True
+
+    if output.spelling_variant_of:
+        preferred = output.spelling_variant_of
+        enqueue(
+            SetSpellingVariantRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                preferred_form=preferred,
+            ),
+            queue_dir,
+        )
+        print(f"  queued spelling_variant {form!r} → {preferred!r}")
+        return True
+
+    alf = sense_store.read(form)
+    if alf is None:
+        print(f"  skipped qc for {form!r}: form not found in sense store")
+        return True
+
+    for entry in output.morph_rels:
+        if sense_store.read(entry.morph_base) is None:
+            print(
+                f"  skipped morph_rel sense {entry.sense_idx} for {form!r}: "
+                f"base {entry.morph_base!r} not in sense store"
+            )
+            continue
+        if entry.sense_idx >= len(alf.senses):
+            print(
+                f"  skipped morph_rel sense {entry.sense_idx} for {form!r}: "
+                f"index out of range"
+            )
+            continue
+        before = alf.senses[entry.sense_idx]
+        after = before.model_copy(
+            update={
+                "definition": entry.proposed_definition,
+                "morph_base": entry.morph_base,
+                "morph_relation": entry.morph_relation,
+                "updated_by_model": "claude-code",
+            }
+        )
+        enqueue(
+            MorphRedirectRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                derived_sense_idx=entry.sense_idx,
+                base_form=entry.morph_base,
+                base_sense_idx=0,
+                relation=entry.morph_relation,
+                before=before,
+                after=after,
+                promote_to_parent=entry.promote_to_parent,
+            ),
+            queue_dir,
+        )
+        print(
+            f"  queued morph_rel sense {entry.sense_idx} for {form!r}"
+            f" → {entry.morph_base!r}"
+        )
+
+    for rw in output.sense_rewrites:
+        if rw.sense_idx >= len(alf.senses):
+            print(
+                f"  skipped rewrite sense {rw.sense_idx} for {form!r}: "
+                f"index out of range"
+            )
+            continue
+        before = alf.senses[rw.sense_idx]
+        after = before.model_copy(
+            update={"definition": rw.definition, "updated_by_model": "claude-code"}
+        )
+        enqueue(
+            RewriteRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                before=before,
+                after=after,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued rewrite sense {rw.sense_idx} for {form!r}")
+
+    for pc in output.pos_corrections:
+        if pc.sense_idx >= len(alf.senses):
+            print(
+                f"  skipped pos_correction sense {pc.sense_idx} for {form!r}: "
+                f"index out of range"
+            )
+            continue
+        try:
+            pos = PartOfSpeech(pc.pos)
+        except ValueError:
+            print(
+                f"  skipped pos_correction sense {pc.sense_idx} for {form!r}: "
+                f"invalid pos {pc.pos!r}"
+            )
+            continue
+        before = alf.senses[pc.sense_idx]
+        after = before.model_copy(
+            update={"pos": pos, "updated_by_model": "claude-code"}
+        )
+        enqueue(
+            UpdatePosRequest(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(UTC),
+                form=form,
+                before=before,
+                after=after,
+                requesting_model="claude-code",
+            ),
+            queue_dir,
+        )
+        print(f"  queued pos_correction sense {pc.sense_idx} for {form!r}")
+
+    if output.deleted_senses:
+        deleted_idxs = {d.sense_idx for d in output.deleted_senses}
+        invalid = sorted(i for i in deleted_idxs if i >= len(alf.senses))
+        if invalid:
+            print(
+                f"  skipping out-of-range deleted_senses indices {invalid} for {form!r}"
+            )
+            deleted_idxs -= set(invalid)
+        if deleted_idxs:
+            deleted_ids = [alf.senses[i].id for i in sorted(deleted_idxs)]
+            before_list = list(alf.senses)
+            after_list = [s for i, s in enumerate(alf.senses) if i not in deleted_idxs]
+            reasons = "; ".join(
+                f"sense {d.sense_idx}: {d.reason}"
+                for d in output.deleted_senses
+                if d.sense_idx in deleted_idxs
+            )
+            enqueue(
+                PruneRequest(
+                    id=str(uuid.uuid4()),
+                    created_at=datetime.now(UTC),
+                    form=form,
+                    before=before_list,
+                    after=after_list,
+                    removed_ids=deleted_ids,
+                    requesting_model="claude-code",
+                ),
+                queue_dir,
+            )
+            print(
+                f"  queued prune {len(deleted_idxs)} sense(s) for {form!r}: {reasons}"
+            )
+
+    return True
+
+
 def run(
     cc_tasks_dir: str | Path,
     senses_db: str | Path,
@@ -288,6 +513,14 @@ def run(
             )
         elif isinstance(output, CCMorphRelBlockOutput):
             ok = _apply_morphrel_block(
+                output,
+                sense_store,
+                queue_path,
+                occ_store,
+                blocklist,
+            )
+        elif isinstance(output, CCQCOutput):
+            ok = _apply_qc(
                 output,
                 sense_store,
                 queue_path,

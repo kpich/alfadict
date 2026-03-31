@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from alfs.data_models.occurrence import Occurrence
 
@@ -32,9 +32,6 @@ class CCMorphRelBlockTask(BaseModel):
     id: str
     form: str
     senses: list[SenseInfo]
-
-
-CCTask = Annotated[CCInductionTask | CCMorphRelBlockTask, Field(discriminator="type")]
 
 
 # --- Output models (written to done/) ---
@@ -81,6 +78,71 @@ class CCMorphRelBlockOutput(BaseModel):
     canonical_form: str | None = None  # required when action == "normalize_case"
 
 
+class DeletedSenseEntry(BaseModel):
+    sense_idx: int
+    reason: str
+
+
+class SenseRewrite(BaseModel):
+    sense_idx: int
+    definition: str
+
+
+class PosCorrection(BaseModel):
+    sense_idx: int
+    pos: str
+
+
+class CCQCTask(BaseModel):
+    type: Literal["qc"] = "qc"
+    id: str
+    form: str
+    senses: list[SenseInfo]
+
+
+CCTask = Annotated[
+    CCInductionTask | CCMorphRelBlockTask | CCQCTask, Field(discriminator="type")
+]
+
+
+class CCQCOutput(BaseModel):
+    type: Literal["qc"] = "qc"
+    id: str
+    form: str
+    # Sense-level ops (combinable)
+    morph_rels: list[MorphRelEntry] = []
+    deleted_senses: list[DeletedSenseEntry] = []
+    sense_rewrites: list[SenseRewrite] = []
+    pos_corrections: list[PosCorrection] = []
+    # Entry-level ops (mutually exclusive with each other and with sense-level)
+    delete_entry: bool = False
+    delete_entry_reason: str | None = None
+    normalize_case: str | None = None  # canonical form, or None
+    spelling_variant_of: str | None = None  # preferred form, or None
+
+    @model_validator(mode="after")
+    def check_entry_vs_sense_ops(self) -> CCQCOutput:
+        n_entry = sum(
+            [
+                self.delete_entry,
+                self.normalize_case is not None,
+                self.spelling_variant_of is not None,
+            ]
+        )
+        sense_level = bool(
+            self.morph_rels
+            or self.deleted_senses
+            or self.sense_rewrites
+            or self.pos_corrections
+        )
+        if n_entry > 1:
+            raise ValueError("at most one entry-level action allowed")
+        if n_entry > 0 and sense_level:
+            raise ValueError("entry-level and sense-level actions cannot be combined")
+        return self
+
+
 CCOutput = Annotated[
-    CCInductionOutput | CCMorphRelBlockOutput, Field(discriminator="type")
+    CCInductionOutput | CCMorphRelBlockOutput | CCQCOutput,
+    Field(discriminator="type"),
 ]

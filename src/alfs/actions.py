@@ -51,10 +51,10 @@ ACTIONS: list[Action] = [
         description="Apply CC skill outputs as clerk requests",
     ),
     Action(
-        "cc-morphrel-block",
-        "CC MorphRel/Block",
-        ["make", "cc_morphrel_block"],
-        description="Generate CC task files for morph-rel, redirect, and block",
+        "cc-qc",
+        "CC Quality Control",
+        ["make", "cc_qc"],
+        description="Generate CC QC task files for per-form quality control",
     ),
 ]
 
