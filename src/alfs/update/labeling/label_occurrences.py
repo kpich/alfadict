@@ -106,7 +106,9 @@ def run(
     if not occ_path.exists():
         print(f"No occurrences parquet for '{form}' ({occ_path}); skipping labeling.")
         return
-    df = pl.read_parquet(str(occ_path)).filter(pl.col("form") == form.lower())
+    df = pl.read_parquet(str(occ_path)).filter(
+        pl.col("form").str.to_lowercase() == form.lower()
+    )
 
     labeled_pairs: set[tuple[str, int]] = set()
     existing = occ_store.query_form(form).filter(pl.col("rating").is_in([1, 2]))

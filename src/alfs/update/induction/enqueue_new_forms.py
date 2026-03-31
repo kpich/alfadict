@@ -100,7 +100,7 @@ def run(
                 continue
             try:
                 df = pl.read_parquet(str(occ_path)).filter(
-                    pl.col("form") == form.lower()
+                    pl.col("form").str.to_lowercase() == form.lower()
                 )
                 rows = df.select(["doc_id", "byte_offset"]).to_dicts()
                 sampled = rng.sample(rows, min(n_occurrence_refs, len(rows)))

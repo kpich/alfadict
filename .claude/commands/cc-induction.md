@@ -21,6 +21,8 @@ You are a lexicographer performing sense induction for English words. Process al
    **C. No new senses** (all covered): If all sentences are already covered by `existing_defs`, output empty `new_senses`.
 
 4. Sense induction rules (for outcome A):
+   - **Case variants:** If `existing_defs` is non-empty and the contexts show the form is just a capitalization variant of an already-inducted entry (no meaningful semantic difference), treat this as outcome C — no new senses. The dictionary maintains one entry per distinct meaning; do not create duplicate entries for case variants.
+
    - **Scope:** This is a broad-coverage dictionary. It includes individual letters ("D", "K"), abbreviations, acronyms, symbols, slang, informal usage, technical jargon, and other tokens with recognized public meaning — even if they would not appear in a conventional dictionary.
    - Only include a sense if the sentences clearly attest that meaning — not if it is merely plausible.
    - Each sense must be meaningfully distinct — not paraphrasable as another.
