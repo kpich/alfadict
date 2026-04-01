@@ -5,13 +5,15 @@ params.seg_data_dir = "${launchDir}/../seg_data/by_prefix"
 params.shard_size   = 1000
 
 process SPLIT_DOCS {
-    input:  path("docs.parquet")
+    input:
+        path("docs.parquet")
+        val seg_data_dir
     output: path "shard_*.parquet"
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.seg.split_docs \
         --docs docs.parquet \
-        --seg-data-dir ${params.seg_data_dir} \
+        --seg-data-dir ${seg_data_dir} \
         --shard-size ${params.shard_size}
     """
 }
@@ -28,20 +30,23 @@ process SEGMENT_SHARD {
 }
 
 process AGGREGATE {
-    input: path "raw_*.parquet"
+    input:
+        path "raw_*.parquet"
+        val seg_data_dir
     script:
     """
     files=(raw_*.parquet)
     uv run --project ${launchDir} --no-sync python -m alfs.seg.aggregate_occurrences \
         --occurrences "\${files[@]}" \
-        --output-dir ${params.seg_data_dir} \
+        --output-dir ${seg_data_dir} \
         --merge
     """
 }
 
 workflow {
+    seg_data_dir = file(params.seg_data_dir).toAbsolutePath().toString()
     docs_ch   = Channel.value(file(params.docs))
-    shards_ch = SPLIT_DOCS(docs_ch).flatten()
+    shards_ch = SPLIT_DOCS(docs_ch, seg_data_dir).flatten()
     raw_ch    = SEGMENT_SHARD(shards_ch)
-    AGGREGATE(raw_ch.collect())
+    AGGREGATE(raw_ch.collect(), seg_data_dir)
 }
