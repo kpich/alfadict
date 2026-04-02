@@ -124,6 +124,8 @@ def compile_qc_coverage(
     corpus_counts: dict[str, int],
     blocklist_forms: set[str],
     n_buckets: int = 50,
+    chart_top_n: int = 200,
+    top_corpus_forms: dict[str, int] | None = None,
 ) -> dict:
     import math
 
@@ -176,12 +178,17 @@ def compile_qc_coverage(
         smoothed_num / total_corpus * 100.0 if total_corpus > 0 else 0.0
     )
 
-    # Sort tracked forms by corpus frequency, build n_buckets aggregated bars
-    sorted_forms = sorted(
-        [(f, c) for f, c in corpus_counts.items() if not f.startswith("_")],
-        key=lambda x: x[1],
-        reverse=True,
+    # For the chart: use top_corpus_forms (all-corpus forms) if available,
+    # else fall back to senses.db-filtered corpus_counts.
+    # top_corpus_forms includes untracked words so coverage gaps are visible.
+    chart_source = (
+        top_corpus_forms
+        if top_corpus_forms is not None
+        else {k: v for k, v in corpus_counts.items() if not k.startswith("_")}
     )
+    sorted_forms_all = sorted(chart_source.items(), key=lambda x: x[1], reverse=True)
+    sorted_forms = sorted_forms_all[:chart_top_n]
+
     N = len(sorted_forms)
     bucket_size = max(1, math.ceil(N / n_buckets))
 
@@ -196,16 +203,16 @@ def compile_qc_coverage(
             sum(c for f, c in chunk if not has_def.get(f, False))
         )
 
+    # Search full sorted list for first uncovered rank (may be beyond chart_top_n)
     first_uncovered_rank: int | None = None
-    for rank, (form, _) in enumerate(sorted_forms, start=1):
+    for rank, (form, _) in enumerate(sorted_forms_all, start=1):
         if not has_def.get(form, False) and form not in blocklist_forms:
             first_uncovered_rank = rank
             break
 
-    # x position for vertical line: left edge of the bucket containing first uncovered
-    # rank
+    # x position for vertical line: only set if rank falls within chart range
     first_uncovered_bucket_x: float | None = None
-    if first_uncovered_rank is not None:
+    if first_uncovered_rank is not None and first_uncovered_rank <= chart_top_n:
         b = (first_uncovered_rank - 1) // bucket_size  # 0-based bucket index
         first_uncovered_bucket_x = b + 0.5  # left edge of bar at x = b+1
 
@@ -273,6 +280,10 @@ def main() -> None:
         help="Path to corpus_counts.json (required for coverage mode)",
     )
     parser.add_argument(
+        "--top-corpus-forms",
+        help="Path to top_corpus_forms.json (optional, for coverage chart)",
+    )
+    parser.add_argument(
         "--blocklist", help="Path to blocklist.yaml (optional, for coverage mode)"
     )
     parser.add_argument("--output", required=True)
@@ -293,13 +304,24 @@ def main() -> None:
                 "--corpus-counts and --senses-db are required for coverage mode"
             )
         corpus_counts: dict[str, int] = json.loads(Path(args.corpus_counts).read_text())
+        top_corpus_forms: dict[str, int] | None = (
+            json.loads(Path(args.top_corpus_forms).read_text())
+            if args.top_corpus_forms
+            else None
+        )
         alfs = Alfs(entries=SenseStore(Path(args.senses_db)).all_entries())
         blocklist_forms: set[str] = (
             set(Blocklist(Path(args.blocklist)).load().keys())
             if args.blocklist
             else set()
         )
-        result = compile_qc_coverage(labeled, alfs, corpus_counts, blocklist_forms)
+        result = compile_qc_coverage(
+            labeled,
+            alfs,
+            corpus_counts,
+            blocklist_forms,
+            top_corpus_forms=top_corpus_forms,
+        )
     else:
         if args.docs is None or args.rating is None or args.senses_db is None:
             parser.error(

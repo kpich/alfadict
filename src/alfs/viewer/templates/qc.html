@@ -33,7 +33,7 @@
     var xs = covered.map(function(_, i) { return i + 1; });
     var shapes = [];
     if (firstX !== null) {
-      shapes.push({ type:'line', x0:firstX+0.5, x1:firstX+0.5,
+      shapes.push({ type:'line', x0:firstX, x1:firstX,
         yref:'paper', y0:0, y1:1, line:{color:'#dc3545', width:2, dash:'dash'} });
     }
     Plotly.newPlot('coverage-chart', [

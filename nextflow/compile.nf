@@ -9,13 +9,17 @@ params.viewer_data_dir     = "${launchDir}/../viewer_data"
 params.num_compile_batches = 8
 
 process COMPILE_CORPUS_COUNTS {
-    output: path "corpus_counts.json"
+    output:
+        path "corpus_counts.json", emit: counts
+        path "top_corpus_forms.json", emit: top_forms
     script:
     """
     uv run --project ${launchDir} --no-sync python -m alfs.viewer.compile_corpus_counts \
         --senses-db ${params.senses_db} \
         --by-prefix-dir ${params.seg_data_dir}/by_prefix \
-        --output corpus_counts.json
+        --output corpus_counts.json \
+        --top-forms-output top_corpus_forms.json \
+        --top-forms-n 500
     """
 }
 
@@ -76,6 +80,7 @@ process COMPILE_QC_COVERAGE {
     publishDir params.viewer_data_dir, mode: 'copy'
     input:
         path "corpus_counts.json"
+        path "top_corpus_forms.json"
     output: path "qc_coverage.json"
     script:
     """
@@ -84,6 +89,7 @@ process COMPILE_QC_COVERAGE {
         --labeled-db ${params.labeled_db} \
         --senses-db ${params.senses_db} \
         --corpus-counts corpus_counts.json \
+        --top-corpus-forms top_corpus_forms.json \
         --blocklist ${params.blocklist_yaml} \
         --output qc_coverage.json
     """
@@ -107,7 +113,9 @@ process COMPILE_QC_INSTANCES {
 workflow {
     docs_ch = Channel.value(file("${params.text_data_dir}/docs.parquet"))
 
-    corpus_counts_ch = COMPILE_CORPUS_COUNTS()
+    def corpus_results = COMPILE_CORPUS_COUNTS()
+    corpus_counts_ch = corpus_results.counts
+    top_forms_ch = corpus_results.top_forms
 
     entries_ch = COMPILE_BATCH(
         Channel.of(0..<params.num_compile_batches),
@@ -118,6 +126,6 @@ workflow {
 
     COMPILE_QC_STATS()
     COMPILE_QC_LAG()
-    COMPILE_QC_COVERAGE(corpus_counts_ch)
+    COMPILE_QC_COVERAGE(corpus_counts_ch, top_forms_ch)
     COMPILE_QC_INSTANCES(Channel.of(0, 1), docs_ch)
 }

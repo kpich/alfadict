@@ -172,6 +172,47 @@ def test_first_uncovered_bucket_x_none_when_all_covered():
     assert result["first_uncovered_bucket_x"] is None
 
 
+def test_top_corpus_forms_shows_untracked_words():
+    # senses.db has only "cat" (with def), but corpus also has "the" (untracked,
+    # uncovered)
+    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
+    corpus_counts = {"cat": 100, "_total": 200}
+    top_corpus_forms = {"the": 100, "cat": 100}  # "the" not in senses.db
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        set(),
+        n_buckets=2,
+        chart_top_n=2,
+        top_corpus_forms=top_corpus_forms,
+    )
+    # "the" has no def → should appear as uncovered
+    assert sum(result["bucket_counts_uncovered"]) > 0
+    assert (
+        result["first_uncovered_rank"] == 1
+    )  # "the" is rank 1 (count=100 same as cat, sorted stably)
+
+
+def test_top_corpus_forms_line_outside_range():
+    # first uncovered is beyond chart_top_n → no line
+    alfs = _alfs(Alf(form="cat", senses=[_sense()]))
+    corpus_counts = {"cat": 100}
+    top_corpus_forms = {"cat": 100, "xyz": 50}  # "xyz" is rank 2, uncovered
+    result = compile_qc_coverage(
+        _labeled([]),
+        alfs,
+        corpus_counts,
+        set(),
+        n_buckets=1,
+        chart_top_n=1,
+        top_corpus_forms=top_corpus_forms,
+    )
+    # first_uncovered_rank=2 but chart_top_n=1, so no line
+    assert result["first_uncovered_rank"] == 2
+    assert result["first_uncovered_bucket_x"] is None
+
+
 def test_empty_corpus_returns_zeros():
     alfs = _alfs(Alf(form="cat", senses=[_sense()]))
     result = compile_qc_coverage(_labeled([]), alfs, {}, set())
