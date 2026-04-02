@@ -38,13 +38,14 @@ def main() -> None:
 
     parquet_glob = str(Path(args.by_prefix_dir) / "**" / "*.parquet")
 
-    # Single scan: count all forms in corpus
+    # Single scan: count all forms in corpus, excluding all-punctuation tokens
     all_df = (
         pl.scan_parquet(
             parquet_glob,
             schema={"form": pl.String},
             extra_columns="ignore",
         )
+        .filter(pl.col("form").str.contains(r"[a-zA-Z0-9]"))
         .group_by("form")
         .agg(pl.len().alias("count"))
         .collect()

@@ -186,7 +186,11 @@ def compile_qc_coverage(
         if top_corpus_forms is not None
         else {k: v for k, v in corpus_counts.items() if not k.startswith("_")}
     )
-    sorted_forms_all = sorted(chart_source.items(), key=lambda x: x[1], reverse=True)
+    sorted_forms_all = sorted(
+        [(f, c) for f, c in chart_source.items() if any(ch.isalnum() for ch in f)],
+        key=lambda x: x[1],
+        reverse=True,
+    )
     sorted_forms = sorted_forms_all[:chart_top_n]
 
     N = len(sorted_forms)
