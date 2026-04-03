@@ -93,7 +93,7 @@ def word(form: str):
     is_recent = form in _recent_forms(data)
 
     senses = entry["senses"]
-    by_year_kde = entry.get("by_year_kde", {})
+    by_year_buckets = entry.get("by_year_buckets", {})
     percentile = entry["percentile"]
 
     # Detect parent (morph-base) form and load its entry
@@ -102,14 +102,14 @@ def word(form: str):
     parent_entry = data["entries"].get(parent_form) if parent_form else None
     parent_senses = parent_entry["senses"] if parent_entry else None
 
-    has_chart = bool(by_year_kde) or bool(
-        parent_entry and parent_entry.get("by_year_kde")
+    has_chart = bool(by_year_buckets) or bool(
+        parent_entry and parent_entry.get("by_year_buckets")
     )
     chart_data = {}
     if has_chart:
         traces = []
         for sk in [s["key"] for s in senses]:
-            pts = by_year_kde.get(sk)
+            pts = by_year_buckets.get(sk)
             if pts:
                 traces.append(
                     {
@@ -121,7 +121,7 @@ def word(form: str):
                     }
                 )
         if parent_entry:
-            parent_kde = parent_entry.get("by_year_kde", {})
+            parent_kde = parent_entry.get("by_year_buckets", {})
             for sk in [s["key"] for s in parent_entry["senses"]]:
                 pts = parent_kde.get(sk)
                 if pts:

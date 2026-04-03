@@ -103,7 +103,8 @@ def test_instances_included_per_sense():
 
 
 def test_uuid_sense_keys_translated_to_positional():
-    """labeled.db stores UUID sense_keys; compile must translate to positional."""
+    """labeled.db stores UUID sense_keys; compile must translate to positional keys in
+    buckets."""
     sense = Sense(definition="to move quickly")
     alfs = _alfs(Alf(form="run", senses=[sense]))
     labeled = _labeled([("run", "doc1", 0, sense.id, 2)])
@@ -111,8 +112,8 @@ def test_uuid_sense_keys_translated_to_positional():
 
     result = compile_entries(alfs, labeled, docs)
 
-    # KDE key should use positional key "1", not the UUID
-    assert "1" in result["run"]["by_year_kde"]
+    # bucket key should use positional key "1", not the UUID
+    assert "1" in result["run"]["by_year_buckets"]
 
 
 def test_instances_included_for_rating1():

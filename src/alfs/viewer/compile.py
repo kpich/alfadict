@@ -24,7 +24,7 @@ from alfs.corpus import fetch_instances
 from alfs.data_models.alf import Alfs, sense_key
 from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
-from alfs.viewer.stats import compute_year_kde
+from alfs.viewer.stats import compute_year_buckets
 
 
 def compile_entries(
@@ -155,14 +155,14 @@ def compile_entries(
             else []
         )
 
-        by_year_kde = compute_year_kde(
+        by_year_buckets = compute_year_buckets(
             sense_year_counts_per_form.get(form, {}),
             global_year_totals,
         )
         entries[form] = {
             "senses": senses,
             "senses_bar": senses_bar,
-            "by_year_kde": dict(by_year_kde),
+            "by_year_buckets": dict(by_year_buckets),
             "updated_at": (timestamps or {}).get(form),
         }
 
