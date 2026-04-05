@@ -8,7 +8,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
 2. For each induction task file, you will see:
    - `form`: the word to define — **may be stored in lowercase even if the canonical form requires different casing** (e.g., task may say `"cologne"` but canonical is `"Cologne"`, or `"a.d."` but canonical is `"A.D."`). You must determine the correct canonical form from the contexts (see step 4).
-   - `contexts`: numbered example sentences containing the word
+   - `contexts`: a sample of example sentences containing the word (not an exhaustive list — there may be many other uses not shown here)
    - `existing_defs`: definitions already in the dictionary for this word
    - `occurrence_refs`: list of `{doc_id, byte_offset}` objects, parallel to `contexts` (index i in `occurrence_refs` is the source of `contexts[i]`)
 
@@ -37,6 +37,7 @@ You are a lexicographer performing sense induction for English words. Process al
 
    - **Scope:** This is a broad-coverage dictionary. It includes individual letters ("D", "K"), abbreviations, acronyms, symbols, slang, informal usage, technical jargon, and other tokens with recognized public meaning — even if they would not appear in a conventional dictionary.
    - Only include a sense if the sentences clearly attest that meaning — not if it is merely plausible.
+   - **Write general definitions**: definitions should describe the word's meaning broadly as used in English, not narrowly tied to the particular example sentences. If examples happen to come from sports articles, don't write "used in sports contexts" — write the general meaning the word carries.
    - Each sense must be meaningfully distinct — not paraphrasable as another.
    - Do NOT propose senses that are nearly identical to existing definitions.
    - Proper nouns are valid entries — use `proper_noun` as POS and define them normally.

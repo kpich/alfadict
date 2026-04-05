@@ -78,13 +78,16 @@ def induction_prompt(
         f"broader than a traditional dictionary. It includes individual letters "
         f'(e.g. "D", "K"), abbreviations, acronyms, symbols, slang, technical jargon, '
         f"and other tokens with recognized public meaning.\n"
-        f'Below are {n} sentences containing "{form}".\n'
+        f'Below are {n} example sentences containing "{form}"'
+        f" (a sample — there may be many other uses not shown).\n"
         f"{existing_block}"
         f"{opt_out_clause}"
         f"Only include a sense if the sentences clearly attest that meaning as a"
         f" general English usage — not if it is merely plausible, and not if the"
         f" usage appears specific to a single document's context rather than a"
         f" general word sense.\n"
+        f"Write definitions that describe the word's general English meaning —"
+        f" not narrowly tailored to the specific example sentences shown.\n"
         f"Each sense must be meaningfully distinct — not paraphrasable as another.\n"
         f"For each sense, group the sentence numbers that illustrate it,"
         f" write a concise one-sentence definition, and assign a part of speech.\n"
