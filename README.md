@@ -87,6 +87,19 @@ The matching metadata file is auto-discovered from `../groq_batch/` by matching 
 
 `backup-gdrive` syncs `../groq_batch_archive/` to Google Drive so all batch history is preserved.
 
+### Critic batch pass
+
+Second-pass quality check: groups labeled instances by sense, shows them to a critic LLM, and downgrades incorrectly-labeled ones to `rating=0` (making them eligible for re-labeling). Each instance gains `last_critic_date`/`last_critic_model` fields; only unreviewed or stale instances are included in new batches.
+
+```
+make critic-batch-prepare [CRITIC_MODEL=openai/gpt-oss-20b]
+# → ../critic_batch/critic_input_*.jsonl  (upload to Groq)
+#   ../critic_batch/critic_metadata_*.jsonl  (sidecar, keep in place)
+
+make critic-batch-ingest BATCH_OUTPUT=../critic_batch/<output>.jsonl
+# → updates labeled.db; archives files to ../critic_batch_archive/
+```
+
 ### Viewer
 
 | Target | What it does |
