@@ -30,6 +30,15 @@ from alfs.data_models.occurrence_store import OccurrenceStore
 from alfs.data_models.sense_store import SenseStore
 from alfs.update.labeling.label_occurrences import extract_context
 
+# Models confirmed to support response_format={"type":"json_object"} on Groq.
+# Omit from this set if unsure — the prompt already enforces JSON output.
+_JSON_MODE_MODELS: frozenset[str] = frozenset(
+    {
+        "llama-3.3-70b-versatile",
+        "mixtral-8x7b-32768",
+    }
+)
+
 
 def build_critic_system_message(form: str, definition: str) -> str:
     """System message for the critic prompt (cached per form+sense by Groq)."""
@@ -168,21 +177,23 @@ def run(
         )
 
         custom_id = str(i)
+        body: dict = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            "max_tokens": 100,
+        }
+        if model in _JSON_MODE_MODELS:
+            body["response_format"] = {"type": "json_object"}
         batch_requests.append(
             json.dumps(
                 {
                     "custom_id": custom_id,
                     "method": "POST",
                     "url": "/v1/chat/completions",
-                    "body": {
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": system_msg},
-                            {"role": "user", "content": user_msg},
-                        ],
-                        "response_format": {"type": "json_object"},
-                        "max_tokens": 100,
-                    },
+                    "body": body,
                 }
             )
         )
