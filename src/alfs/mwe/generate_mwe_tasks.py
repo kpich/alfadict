@@ -24,8 +24,7 @@ from alfs.data_models.mwe_queue import MWEQueue
 from alfs.data_models.occurrence import Occurrence
 from alfs.encoding import context_window as _context_window
 from alfs.mwe.find_occurrences import (
-    find_mwe_occurrences,
-    load_all_seg_data,
+    MWECorpus,
     mwe_form_from_components,
 )
 
@@ -52,7 +51,7 @@ def run(
     pending_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading seg data from {seg_data_dir}...")
-    all_tokens = load_all_seg_data(seg_data_dir)
+    corpus = MWECorpus(seg_data_dir)
 
     rng = random.Random(seed)
     generated = 0
@@ -62,7 +61,7 @@ def run(
         if entry.occurrences:
             occs = entry.occurrences
         else:
-            occs = find_mwe_occurrences(all_tokens, entry.components)
+            occs = corpus.find_occurrences(entry.components)
 
         if not occs:
             print(f"  skipped {entry.form!r}: no occurrences found")

@@ -20,7 +20,7 @@ import polars as pl
 import spacy
 
 from alfs.data_models.sense_store import SenseStore
-from alfs.mwe.find_occurrences import find_mwe_occurrences, load_all_seg_data
+from alfs.mwe.find_occurrences import MWECorpus
 from alfs.seg.aggregate_occurrences import aggregate
 
 
@@ -60,7 +60,7 @@ def populate(senses_db: Path, seg_data_dir: Path) -> int:
     print(f"Found {len(mwe_forms)} MWE forms in SenseStore.")
 
     try:
-        all_tokens = load_all_seg_data(seg_data_dir)
+        corpus = MWECorpus(seg_data_dir)
     except FileNotFoundError:
         print(f"No seg data found in {seg_data_dir}, nothing to do.")
         return 0
@@ -71,7 +71,7 @@ def populate(senses_db: Path, seg_data_dir: Path) -> int:
         if len(components) not in (2, 3):
             print(f"  Skipping {form!r}: {len(components)} components (unsupported)")
             continue
-        occs = find_mwe_occurrences(all_tokens, components)
+        occs = corpus.find_occurrences(components)
         print(f"  {form!r}: {len(occs)} occurrences")
         for occ in occs:
             rows.append(
@@ -89,10 +89,8 @@ def populate(senses_db: Path, seg_data_dir: Path) -> int:
     # Deduplicate against existing seg data: read existing rows for these
     # forms and remove any that already exist.
     mwe_form_set = {form for form, _ in mwe_forms}
-    existing_df = (
-        all_tokens.filter(pl.col("form").is_in(mwe_form_set))
-        .select(["form", "doc_id", "byte_offset"])
-        .collect()
+    existing_df = corpus._bigram_df.filter(pl.col("form").is_in(mwe_form_set)).select(
+        ["form", "doc_id", "byte_offset"]
     )
 
     if len(existing_df) > 0:
