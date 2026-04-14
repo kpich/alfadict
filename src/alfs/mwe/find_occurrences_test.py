@@ -11,19 +11,15 @@ from alfs.mwe.find_occurrences import (
 )
 
 
-def _make_tokens(rows: list[tuple[str, str, int]]) -> pl.LazyFrame:
-    """Build a LazyFrame from (form, doc_id, byte_offset) tuples."""
-    return (
-        pl.DataFrame(
-            {
-                "form": [r[0] for r in rows],
-                "doc_id": [r[1] for r in rows],
-                "byte_offset": [r[2] for r in rows],
-            },
-        )
-        .sort(["doc_id", "byte_offset"])
-        .lazy()
-    )
+def _make_tokens(rows: list[tuple[str, str, int]]) -> pl.DataFrame:
+    """Build a DataFrame from (form, doc_id, byte_offset) tuples."""
+    return pl.DataFrame(
+        {
+            "form": [r[0] for r in rows],
+            "doc_id": [r[1] for r in rows],
+            "byte_offset": [r[2] for r in rows],
+        },
+    ).sort(["doc_id", "byte_offset"])
 
 
 def test_find_bigram():

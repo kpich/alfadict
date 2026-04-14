@@ -7,18 +7,14 @@ import polars as pl
 from alfs.mwe.compute_pmi import compute_bigram_pmi, compute_hyphen_trigram_pmi
 
 
-def _make_tokens(rows: list[tuple[str, str, int]]) -> pl.LazyFrame:
-    return (
-        pl.DataFrame(
-            {
-                "form": [r[0] for r in rows],
-                "doc_id": [r[1] for r in rows],
-                "byte_offset": [r[2] for r in rows],
-            },
-        )
-        .sort(["doc_id", "byte_offset"])
-        .lazy()
-    )
+def _make_tokens(rows: list[tuple[str, str, int]]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "form": [r[0] for r in rows],
+            "doc_id": [r[1] for r in rows],
+            "byte_offset": [r[2] for r in rows],
+        },
+    ).sort(["doc_id", "byte_offset"])
 
 
 def test_bigram_pmi_basic():

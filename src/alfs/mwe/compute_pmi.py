@@ -30,7 +30,7 @@ def _has_letter(s: str) -> bool:
 
 
 def compute_bigram_pmi(
-    all_tokens: pl.LazyFrame,
+    all_tokens: pl.DataFrame,
     *,
     min_count: int = 10,
     min_pmi: float = 5.0,
@@ -43,8 +43,7 @@ def compute_bigram_pmi(
         count (int): bigram frequency
         pmi (float): pointwise mutual information
     """
-    # Materialize for counting
-    tokens = all_tokens.collect()
+    tokens = all_tokens
     n_total = len(tokens)
 
     # Unigram counts
@@ -111,7 +110,7 @@ def compute_bigram_pmi(
 
 
 def compute_hyphen_trigram_pmi(
-    all_tokens: pl.LazyFrame,
+    all_tokens: pl.DataFrame,
     *,
     min_count: int = 10,
     min_pmi: float = 5.0,
@@ -121,7 +120,7 @@ def compute_hyphen_trigram_pmi(
     PMI is computed for the (X, Y) outer pair, treating the hyphen as
     transparent.  The components list includes all three tokens.
     """
-    tokens = all_tokens.collect()
+    tokens = all_tokens
     n_total = len(tokens)
 
     unigram_counts = tokens.group_by("form").agg(pl.len().alias("count"))

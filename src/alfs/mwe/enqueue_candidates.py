@@ -24,7 +24,7 @@ from alfs.data_models.blocklist import Blocklist
 from alfs.data_models.mwe_queue import MWEQueue, MWEQueueEntry
 from alfs.data_models.occurrence import Occurrence
 from alfs.data_models.sense_store import SenseStore
-from alfs.mwe.find_occurrences import find_mwe_occurrences, load_all_seg_data
+from alfs.mwe.find_occurrences import MWECorpus
 
 
 def run(
@@ -60,17 +60,17 @@ def run(
         return 0
 
     # Optionally sample occurrence refs
-    all_tokens = None
+    corpus: MWECorpus | None = None
     if seg_data_dir and n_occurrence_refs > 0:
-        all_tokens = load_all_seg_data(seg_data_dir)
+        corpus = MWECorpus(seg_data_dir)
 
     rng = random.Random(seed)
     entries: list[MWEQueueEntry] = []
     for row in candidates.iter_rows(named=True):
         occs: list[Occurrence] = []
-        if all_tokens is not None:
+        if corpus is not None:
             try:
-                all_occs = find_mwe_occurrences(all_tokens, row["components"])
+                all_occs = corpus.find_occurrences(row["components"])
                 sampled = rng.sample(all_occs, min(n_occurrence_refs, len(all_occs)))
                 occs = sampled
             except Exception:
