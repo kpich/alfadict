@@ -11,11 +11,9 @@ from alfs.clerk.request import (
     AddSensesRequest,
     DeleteEntryRequest,
     MorphRedirectRequest,
-    PosTagRequest,
     PruneRequest,
     RewriteRequest,
     SetSpellingVariantRequest,
-    TrimSenseRequest,
     UpdatePosRequest,
 )
 from alfs.data_models.alf import Alf, Sense
@@ -131,27 +129,7 @@ def test_rewrite_skips_if_rank_insufficient(store: SenseStore) -> None:
     assert entry.senses[0].definition == "old definition"
 
 
-# --- PosTagRequest / UpdatePosRequest ---
-
-
-def test_pos_tag_replaces_sense(store: SenseStore) -> None:
-    from alfs.data_models.pos import PartOfSpeech
-
-    before = _sense("to move quickly")
-    store.write(Alf(form="run", senses=[before]))
-    after = before.model_copy(update={"pos": PartOfSpeech.verb})
-    req = PosTagRequest(
-        id=_req_id(),
-        created_at=_now(),
-        form="run",
-        before=before,
-        after=after,
-    )
-    result = req.apply(store, None)
-    assert result is True
-    entry = store.read("run")
-    assert entry is not None
-    assert entry.senses[0].pos == PartOfSpeech.verb
+# --- UpdatePosRequest ---
 
 
 def test_update_pos_skips_if_rank_insufficient(store: SenseStore) -> None:
@@ -236,68 +214,6 @@ def test_prune_skips_if_rank_insufficient(store: SenseStore) -> None:
     entry = store.read("run")
     assert entry is not None
     assert len(entry.senses) == 1
-
-
-# --- TrimSenseRequest ---
-
-
-def test_trim_sense_removes_one_sense(store: SenseStore) -> None:
-    s1 = _sense("to move quickly")
-    s2 = _sense("to manage")
-    store.write(Alf(form="run", senses=[s1, s2]))
-    req = TrimSenseRequest(
-        id=_req_id(),
-        created_at=_now(),
-        form="run",
-        before=[s1, s2],
-        after=[s2],
-        sense_id=s1.id,
-        reason="redundant",
-    )
-    result = req.apply(store, None)
-    assert result is True
-    entry = store.read("run")
-    assert entry is not None
-    assert len(entry.senses) == 1
-    assert entry.senses[0].definition == "to manage"
-
-
-def test_trim_sense_deletes_occurrences(
-    store: SenseStore, occ_store: OccurrenceStore
-) -> None:
-    s1 = _sense("to move quickly")
-    store.write(Alf(form="run", senses=[s1]))
-    occ_store.upsert_many([("run", "doc1", 0, s1.id, 1, None)], model="test")
-
-    req = TrimSenseRequest(
-        id=_req_id(),
-        created_at=_now(),
-        form="run",
-        before=[s1],
-        after=[],
-        sense_id=s1.id,
-        reason="redundant",
-    )
-    req.apply(store, occ_store)
-
-    assert len(occ_store.query_form("run")) == 0
-
-
-def test_trim_sense_skips_if_rank_insufficient(store: SenseStore) -> None:
-    s1 = _sense("to move quickly", model="claude-code")
-    store.write(Alf(form="run", senses=[s1]))
-    req = TrimSenseRequest(
-        id=_req_id(),
-        created_at=_now(),
-        form="run",
-        before=[s1],
-        after=[],
-        sense_id=s1.id,
-        reason="redundant",
-        requesting_model="qwen2.5:32b",
-    )
-    result = req.apply(store, None)
-    assert result is False
 
 
 # --- MorphRedirectRequest ---
