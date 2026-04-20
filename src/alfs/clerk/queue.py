@@ -16,7 +16,6 @@ from alfs.clerk.request import (
     ChangeRequest,
     DeleteEntryRequest,
     PruneRequest,
-    TrimSenseRequest,
 )
 from alfs.data_models.instance_log import (
     append_delete_by_form,
@@ -78,11 +77,7 @@ def _process_file(
         )
         if applied and log_dir is not None:
             now = datetime.now(UTC)
-            if isinstance(request, TrimSenseRequest):
-                append_delete_by_sense(
-                    log_dir, request.form, request.sense_id, request.id, now
-                )
-            elif isinstance(request, PruneRequest):
+            if isinstance(request, PruneRequest):
                 for sid in request.removed_ids:
                     append_delete_by_sense(log_dir, request.form, sid, request.id, now)
             elif isinstance(request, DeleteEntryRequest):

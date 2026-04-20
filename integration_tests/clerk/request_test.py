@@ -7,7 +7,6 @@ from alfs.clerk.request import (
     MorphRedirectRequest,
     PruneRequest,
     RewriteRequest,
-    TrimSenseRequest,
     UpdatePosRequest,
 )
 from alfs.data_models.alf import Alf, Sense
@@ -26,87 +25,6 @@ def _occ_store(tmp_path: Path) -> OccurrenceStore:
 
 def _make_request_id() -> str:
     return "test-request-id"
-
-
-# --- TrimSenseRequest ---
-
-
-def test_trim_sense_removes_sense_from_senses_db(tmp_path: Path) -> None:
-    store = _sense_store(tmp_path)
-    sense_a = Sense(definition="sense A")
-    sense_b = Sense(definition="sense B")
-    store.write(Alf(form="word", senses=[sense_a, sense_b]))
-
-    request = TrimSenseRequest(
-        id=_make_request_id(),
-        created_at=datetime.now(UTC),
-        form="word",
-        before=[sense_a, sense_b],
-        after=[sense_b],
-        sense_id=sense_a.id,
-        reason="test",
-    )
-    request.apply(store, None)
-
-    result = store.read("word")
-    assert result is not None
-    assert len(result.senses) == 1
-    assert result.senses[0].id == sense_b.id
-
-
-def test_trim_sense_deletes_labeled_rows_for_removed_sense(tmp_path: Path) -> None:
-    store = _sense_store(tmp_path)
-    occ = _occ_store(tmp_path)
-    sense_a = Sense(definition="sense A")
-    sense_b = Sense(definition="sense B")
-    store.write(Alf(form="word", senses=[sense_a, sense_b]))
-
-    occ.upsert_many(
-        [
-            ("word", "doc1", 0, sense_a.id, 2, None),
-            ("word", "doc1", 100, sense_b.id, 2, None),
-        ],
-        model="test-model",
-    )
-
-    request = TrimSenseRequest(
-        id=_make_request_id(),
-        created_at=datetime.now(UTC),
-        form="word",
-        before=[sense_a, sense_b],
-        after=[sense_b],
-        sense_id=sense_a.id,
-        reason="test",
-    )
-    request.apply(store, occ)
-
-    df = occ.query_form("word")
-    assert len(df) == 1
-    assert df["sense_key"][0] == sense_b.id
-
-
-def test_trim_sense_preserves_other_sense_ids(tmp_path: Path) -> None:
-    store = _sense_store(tmp_path)
-    sense_a = Sense(definition="sense A")
-    sense_b = Sense(definition="sense B")
-    sense_c = Sense(definition="sense C")
-    store.write(Alf(form="word", senses=[sense_a, sense_b, sense_c]))
-
-    request = TrimSenseRequest(
-        id=_make_request_id(),
-        created_at=datetime.now(UTC),
-        form="word",
-        before=[sense_a, sense_b, sense_c],
-        after=[sense_a, sense_c],
-        sense_id=sense_b.id,
-        reason="test",
-    )
-    request.apply(store, None)
-
-    result = store.read("word")
-    assert result is not None
-    ids = [s.id for s in result.senses]
-    assert ids == [sense_a.id, sense_c.id]
 
 
 # --- PruneRequest ---

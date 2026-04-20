@@ -4,8 +4,7 @@ Log files are monthly JSONL: {log_dir}/YYYY-MM.jsonl
 
 Three event types:
   upsert          — occurrence labeled or re-labeled
-  delete_by_sense — all occurrences for a sense deleted (TrimSenseRequest /
-                    PruneRequest)
+  delete_by_sense — all occurrences for a sense deleted (PruneRequest)
   delete_by_form  — all occurrences for a form deleted (DeleteEntryRequest)
 """
 
