@@ -41,7 +41,7 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
 
 5. Write the output JSON to `/Users/kpich/dev/alfs/cc_tasks/done/mwe/<same_filename>` with this schema:
 
-   For **approve**:
+   For **approve** — write the done file, then delete the pending file:
    ```json
    {
      "type": "mwe",
@@ -59,6 +59,7 @@ You are a lexicographer reviewing multi-word expression (MWE) candidates. Proces
      ]
    }
    ```
+   Then delete the pending file.
 
    For **skip** — write a done file, then delete the pending file (no senses needed):
    ```json
